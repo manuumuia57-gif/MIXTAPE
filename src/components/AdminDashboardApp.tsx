@@ -2,7 +2,6 @@ import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState
 import {
   BookOpen,
   Building2,
-  Calendar,
   CheckCircle2,
   Download,
   Edit3,
@@ -31,6 +30,7 @@ import {
   Course,
   Department,
   DocumentType,
+  ExaminationType,
   LibraryDocument,
   LibraryOverview,
 } from '../types/vault';
@@ -58,6 +58,12 @@ interface ConfirmDeleteState {
   title: string;
   detail: string;
 }
+
+const PAPER_TYPES = new Set<DocumentType>([
+  'Past Examination Papers',
+  'CAT Papers',
+  'Practical Papers',
+]);
 
 export function AdminDashboardApp({
   overview,
@@ -90,6 +96,7 @@ export function AdminDashboardApp({
   const [upYear, setUpYear] = useState(overview.academicYears[0] || '2025/2026');
   const [upSemester, setUpSemester] = useState(overview.semesters[0] || 'Semester 1');
   const [upDocType, setUpDocType] = useState<DocumentType>(overview.documentTypes[0]);
+  const [upExamType, setUpExamType] = useState<ExaminationType>(overview.examinationTypes[0]);
   const [upDesc, setUpDesc] = useState('');
   const [upFile, setUpFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -99,7 +106,7 @@ export function AdminDashboardApp({
   const [uploadSuccess, setUploadSuccess] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Manage Past Papers & Uploads state
+  // Manage Past Papers & Study Materials state
   const [docSearch, setDocSearch] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('');
   const [editingDoc, setEditingDoc] = useState<LibraryDocument | null>(null);
@@ -108,6 +115,7 @@ export function AdminDashboardApp({
   const [editYear, setEditYear] = useState('');
   const [editSemester, setEditSemester] = useState('');
   const [editDocType, setEditDocType] = useState<DocumentType>('Past Examination Papers');
+  const [editExamType, setEditExamType] = useState<ExaminationType>('End of Semester Examination');
   const [editDesc, setEditDesc] = useState('');
   const [savingDocEdit, setSavingDocEdit] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -123,15 +131,19 @@ export function AdminDashboardApp({
   // Departments CRUD state
   const [newDeptCode, setNewDeptCode] = useState('');
   const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptSchool, setNewDeptSchool] = useState(
+    overview.schools[0] || 'School of Computer Science & IT'
+  );
   const [newDeptDesc, setNewDeptDesc] = useState('');
   const [editingDept, setEditingDept] = useState<Department | null>(null);
 
-  // Academic Years CRUD state
+  // Academic Years CRUD state (inside Website Settings)
   const [newYearLabel, setNewYearLabel] = useState('');
 
   // Website Settings state
   const [siteName, setSiteName] = useState(overview.settings.siteName);
   const [institutionName, setInstitutionName] = useState(overview.settings.institutionName);
+  const [tagline, setTagline] = useState(overview.settings.tagline);
   const [contactEmail, setContactEmail] = useState(overview.settings.contactEmail);
   const [contactPhone, setContactPhone] = useState(overview.settings.contactPhone);
   const [aboutText, setAboutText] = useState(overview.settings.aboutText);
@@ -154,6 +166,7 @@ export function AdminDashboardApp({
   useEffect(() => {
     setSiteName(overview.settings.siteName);
     setInstitutionName(overview.settings.institutionName);
+    setTagline(overview.settings.tagline);
     setContactEmail(overview.settings.contactEmail);
     setContactPhone(overview.settings.contactPhone);
     setAboutText(overview.settings.aboutText);
@@ -195,13 +208,15 @@ export function AdminDashboardApp({
   const filteredDocs = useMemo(() => {
     const q = docSearch.trim().toLowerCase();
     return overview.documents.filter((d) => {
+      if (section === 'manage-papers' && !PAPER_TYPES.has(d.documentType)) return false;
+      if (section === 'manage-materials' && PAPER_TYPES.has(d.documentType)) return false;
       if (docTypeFilter && d.documentType !== docTypeFilter) return false;
       if (!q) return true;
-      return `${d.title} ${d.courseCode} ${d.courseName} ${d.departmentName} ${d.academicYear} ${d.documentType} ${d.originalFilename}`
+      return `${d.title} ${d.courseCode} ${d.courseName} ${d.departmentName} ${d.school} ${d.academicYear} ${d.documentType} ${d.originalFilename}`
         .toLowerCase()
         .includes(q);
     });
-  }, [overview.documents, docSearch, docTypeFilter]);
+  }, [overview.documents, section, docSearch, docTypeFilter]);
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -261,6 +276,7 @@ export function AdminDashboardApp({
     formData.append('academicYear', upYear);
     formData.append('semester', upSemester);
     formData.append('documentType', upDocType);
+    formData.append('examinationType', upExamType);
     formData.append('description', upDesc.trim());
 
     setUploading(true);
@@ -282,7 +298,9 @@ export function AdminDashboardApp({
         const res = JSON.parse(xhr.responseText || '{}');
         if (xhr.status >= 200 && xhr.status < 300) {
           setUploadProgress(100);
-          setUploadSuccess(`"${res.document?.title || upTitle}" is now live on the student website.`);
+          setUploadSuccess(
+            `"${res.document?.title || upTitle}" is now published on DeKUT Past Papers Library.`
+          );
           setUpTitle('');
           setUpDesc('');
           setUpCustomCode('');
@@ -315,6 +333,7 @@ export function AdminDashboardApp({
     setEditYear(doc.academicYear);
     setEditSemester(doc.semester);
     setEditDocType(doc.documentType);
+    setEditExamType(doc.examinationType);
     setEditDesc(doc.description);
   };
 
@@ -332,6 +351,7 @@ export function AdminDashboardApp({
           academicYear: editYear,
           semester: editSemester,
           documentType: editDocType,
+          examinationType: editExamType,
           description: editDesc,
         }),
       });
@@ -423,6 +443,7 @@ export function AdminDashboardApp({
       body: JSON.stringify({
         code: newDeptCode,
         name: newDeptName,
+        school: newDeptSchool,
         description: newDeptDesc,
       }),
     });
@@ -443,6 +464,7 @@ export function AdminDashboardApp({
     setEditingDept(d);
     setNewDeptCode(d.code);
     setNewDeptName(d.name);
+    setNewDeptSchool(d.school);
     setNewDeptDesc(d.description);
   };
 
@@ -505,6 +527,7 @@ export function AdminDashboardApp({
         body: JSON.stringify({
           siteName,
           institutionName,
+          tagline,
           contactEmail,
           contactPhone,
           aboutText,
@@ -552,14 +575,14 @@ export function AdminDashboardApp({
     }
   };
 
+  // Exact 8-item menu per Section 5 (7 navigation views + Logout button)
   const menuItems: { id: AdminMenuSection; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'upload', label: 'Upload New Material', icon: Upload },
     { id: 'manage-papers', label: 'Manage Past Papers', icon: FileText },
+    { id: 'manage-materials', label: 'Manage Study Materials', icon: FolderOpen },
     { id: 'manage-courses', label: 'Manage Courses', icon: BookOpen },
     { id: 'manage-departments', label: 'Manage Departments', icon: Building2 },
-    { id: 'manage-years', label: 'Manage Academic Years', icon: Calendar },
-    { id: 'manage-uploads', label: 'Manage Uploads', icon: FolderOpen },
     { id: 'settings', label: 'Website Settings', icon: Settings },
   ];
 
@@ -567,10 +590,10 @@ export function AdminDashboardApp({
     <div className="flex h-full flex-col justify-between">
       <div>
         <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
-          <VaultBrandLogo siteName={overview.settings.siteName} />
-          <p className="mt-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-            Administrator Control Panel
-          </p>
+          <VaultBrandLogo
+            siteName={overview.settings.siteName}
+            subtitle="Admin Control Panel"
+          />
         </div>
 
         <nav className="space-y-1 p-3" aria-label="Admin Navigation">
@@ -583,6 +606,7 @@ export function AdminDashboardApp({
                 type="button"
                 onClick={() => {
                   setSection(item.id);
+                  setDocTypeFilter('');
                   setMobileMenuOpen(false);
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
@@ -622,7 +646,6 @@ export function AdminDashboardApp({
 
   return (
     <div className="flex min-h-screen bg-[#F4F7FB] text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
-      {/* Hidden input for replacing any existing document file */}
       <input
         ref={replaceInputRef}
         type="file"
@@ -651,7 +674,6 @@ export function AdminDashboardApp({
 
       {/* Main Workspace */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Admin Top Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-slate-800 dark:bg-[#162033]/95 sm:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -683,7 +705,7 @@ export function AdminDashboardApp({
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Upload Material</span>
+              <span className="hidden sm:inline">Upload New Material</span>
             </button>
             <button
               type="button"
@@ -691,7 +713,7 @@ export function AdminDashboardApp({
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-[#14213D] hover:bg-slate-50 dark:border-slate-700 dark:text-white dark:hover:bg-slate-800 whitespace-nowrap"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              <span>Student Site</span>
+              <span>View DeKUT Site</span>
             </button>
           </div>
         </header>
@@ -726,14 +748,14 @@ export function AdminDashboardApp({
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#162033] lg:col-span-7">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
                     <h2 className="font-display text-base font-bold text-[#14213D] dark:text-white">
-                      Recent Documents
+                      Recent Library Documents
                     </h2>
                     <button
                       type="button"
                       onClick={() => setSection('manage-papers')}
                       className="text-xs font-semibold text-[#2563EB] hover:underline"
                     >
-                      Manage all
+                      Manage papers
                     </button>
                   </div>
                   <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
@@ -795,7 +817,7 @@ export function AdminDashboardApp({
                       <p className="text-xs text-slate-500">Loading messages...</p>
                     ) : messages.length === 0 ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        No contact messages received yet. Student submissions from the Contact page appear here.
+                        No contact messages received yet. Student requests from the Contact page appear here.
                       </p>
                     ) : (
                       messages.slice(0, 5).map((msg) => (
@@ -836,7 +858,7 @@ export function AdminDashboardApp({
                     Upload Past Paper or Study Material
                   </h2>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Uploaded files appear immediately on the public student website. Supported formats: PDF, DOCX, PPTX (max 30 MB).
+                    Uploaded documents appear automatically on the public DeKUT Past Papers Library. Supported formats: PDF, DOCX, PPTX (max 30 MB).
                   </p>
                 </div>
 
@@ -860,7 +882,7 @@ export function AdminDashboardApp({
                     required
                     value={upTitle}
                     onChange={(e) => setUpTitle(e.target.value)}
-                    placeholder="e.g. CSC 204 Data Structures End of Semester Examination"
+                    placeholder="e.g. CCS 2204 Data Structures End of Semester Examination"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -875,14 +897,14 @@ export function AdminDashboardApp({
                     >
                       {overview.departments.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.code} — {d.name}
+                          {d.code} — {d.name} ({d.school})
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold">Document Type *</label>
+                    <label className="mb-1.5 block text-xs font-semibold">Document Category *</label>
                     <select
                       value={upDocType}
                       onChange={(e) => setUpDocType(e.target.value as DocumentType)}
@@ -898,7 +920,7 @@ export function AdminDashboardApp({
                 {/* Course Selection or Quick Custom Course */}
                 <div className="rounded-xl border border-slate-200 bg-[#F4F7FB] p-4 dark:border-slate-800 dark:bg-slate-900/60">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-semibold">Course Selection *</span>
+                    <span className="text-xs font-semibold">Course Name & Course Code *</span>
                     <div className="flex gap-2 text-xs">
                       <button
                         type="button"
@@ -943,7 +965,7 @@ export function AdminDashboardApp({
                         type="text"
                         value={upCustomCode}
                         onChange={(e) => setUpCustomCode(e.target.value)}
-                        placeholder="Course Code (e.g. CSC 315)"
+                        placeholder="Course Code (e.g. CCS 3201)"
                         className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm uppercase dark:border-slate-700 dark:bg-slate-900"
                       />
                       <input
@@ -957,7 +979,7 @@ export function AdminDashboardApp({
                   )}
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold">Academic Year *</label>
                     <select
@@ -982,6 +1004,18 @@ export function AdminDashboardApp({
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold">Examination Type *</label>
+                    <select
+                      value={upExamType}
+                      onChange={(e) => setUpExamType(e.target.value as ExaminationType)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      {overview.examinationTypes.map((et) => (
+                        <option key={et} value={et}>{et}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
@@ -990,7 +1024,7 @@ export function AdminDashboardApp({
                     rows={3}
                     value={upDesc}
                     onChange={(e) => setUpDesc(e.target.value)}
-                    placeholder="Optional notes for students (e.g. Section A multiple choice and Section B essay questions)..."
+                    placeholder="Optional notes for DeKUT students (topics covered, lecturer notes, or exam sections)..."
                     className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -1025,7 +1059,7 @@ export function AdminDashboardApp({
                         Drag and drop your PDF, DOCX, or PPTX file here
                       </p>
                       <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                        Works directly from phone storage or computer files
+                        Select directly from phone storage or computer files
                       </p>
                     </div>
                   )}
@@ -1074,8 +1108,8 @@ export function AdminDashboardApp({
             </div>
           )}
 
-          {/* 3. MANAGE PAST PAPERS & 7. MANAGE UPLOADS */}
-          {(section === 'manage-papers' || section === 'manage-uploads') && (
+          {/* 3. MANAGE PAST PAPERS & 4. MANAGE STUDY MATERIALS */}
+          {(section === 'manage-papers' || section === 'manage-materials') && (
             <div className="mx-auto max-w-6xl space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#162033]">
                 <div className="relative flex-1 min-w-[220px]">
@@ -1084,7 +1118,11 @@ export function AdminDashboardApp({
                     type="text"
                     value={docSearch}
                     onChange={(e) => setDocSearch(e.target.value)}
-                    placeholder="Search documents by title, course code, year, or filename..."
+                    placeholder={
+                      section === 'manage-papers'
+                        ? 'Search past papers, CATs, or practical papers...'
+                        : 'Search lecture notes, revision guides, or assignments...'
+                    }
                     className="w-full rounded-lg border border-slate-200 bg-[#F4F7FB] py-2 pl-9 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
@@ -1093,10 +1131,14 @@ export function AdminDashboardApp({
                   onChange={(e) => setDocTypeFilter(e.target.value)}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
                 >
-                  <option value="">All Categories</option>
-                  {overview.documentTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  <option value="">All Categories in View</option>
+                  {overview.documentTypes
+                    .filter((t) =>
+                      section === 'manage-papers' ? PAPER_TYPES.has(t) : !PAPER_TYPES.has(t)
+                    )
+                    .map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                 </select>
               </div>
 
@@ -1117,9 +1159,9 @@ export function AdminDashboardApp({
                       <tr key={doc.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-[#14213D] dark:text-white">{doc.title}</p>
-                          {section === 'manage-uploads' && (
-                            <p className="font-mono text-[11px] text-slate-500">{doc.originalFilename}</p>
-                          )}
+                          <p className="text-[11px] text-slate-500">
+                            {doc.examinationType} · {doc.originalFilename}
+                          </p>
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-mono font-semibold text-[#2563EB]">{doc.courseCode}</span>
@@ -1173,7 +1215,8 @@ export function AdminDashboardApp({
                                   type: 'document',
                                   id: doc.id,
                                   title: doc.title,
-                                  detail: 'This permanently removes the document and its file from the student library.',
+                                  detail:
+                                    'This permanently removes the document and its file from DeKUT Past Papers Library.',
                                 })
                               }
                               title="Delete document"
@@ -1191,7 +1234,7 @@ export function AdminDashboardApp({
             </div>
           )}
 
-          {/* 4. MANAGE COURSES */}
+          {/* 5. MANAGE COURSES */}
           {section === 'manage-courses' && (
             <div className="mx-auto max-w-5xl space-y-6">
               <form
@@ -1223,7 +1266,7 @@ export function AdminDashboardApp({
                     required
                     value={newCourseCode}
                     onChange={(e) => setNewCourseCode(e.target.value)}
-                    placeholder="Course Code (e.g. CSC 301)"
+                    placeholder="Course Code (e.g. CCS 3201)"
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs uppercase dark:border-slate-700 dark:bg-slate-900"
                   />
                   <input
@@ -1278,7 +1321,9 @@ export function AdminDashboardApp({
                         <h3 className="mt-0.5 text-sm font-bold text-[#14213D] dark:text-white">
                           {course.name}
                         </h3>
-                        <p className="mt-1 text-xs text-slate-500">{course.departmentName}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {course.school} · {course.departmentName}
+                        </p>
                         <p className="mt-1 font-mono text-[11px] tabular-nums text-slate-500">
                           {docCount} uploaded files
                         </p>
@@ -1313,7 +1358,7 @@ export function AdminDashboardApp({
             </div>
           )}
 
-          {/* 5. MANAGE DEPARTMENTS */}
+          {/* 6. MANAGE DEPARTMENTS */}
           {section === 'manage-departments' && (
             <div className="mx-auto max-w-4xl space-y-6">
               <form
@@ -1345,7 +1390,7 @@ export function AdminDashboardApp({
                     required
                     value={newDeptCode}
                     onChange={(e) => setNewDeptCode(e.target.value)}
-                    placeholder="Dept Code (e.g. LAW)"
+                    placeholder="Dept Code (e.g. IGG)"
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs uppercase dark:border-slate-700 dark:bg-slate-900"
                   />
                   <input
@@ -1354,7 +1399,15 @@ export function AdminDashboardApp({
                     value={newDeptName}
                     onChange={(e) => setNewDeptName(e.target.value)}
                     placeholder="Department Name"
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs sm:col-span-2 dark:border-slate-700 dark:bg-slate-900"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={newDeptSchool}
+                    onChange={(e) => setNewDeptSchool(e.target.value)}
+                    placeholder="School / Faculty (e.g. School of Engineering)"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
                   />
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -1384,7 +1437,9 @@ export function AdminDashboardApp({
                       className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#162033]"
                     >
                       <div>
-                        <p className="font-mono text-xs font-bold text-[#2563EB]">{dept.code}</p>
+                        <p className="font-mono text-xs font-bold text-[#2563EB]">
+                          {dept.code} · {dept.school}
+                        </p>
                         <h3 className="text-sm font-bold text-[#14213D] dark:text-white">{dept.name}</h3>
                         <p className="mt-0.5 text-xs text-slate-500">{dept.description}</p>
                         <p className="mt-1 font-mono text-[11px] tabular-nums text-slate-500">
@@ -1421,63 +1476,7 @@ export function AdminDashboardApp({
             </div>
           )}
 
-          {/* 6. MANAGE ACADEMIC YEARS */}
-          {section === 'manage-years' && (
-            <div className="mx-auto max-w-2xl space-y-6">
-              <form
-                onSubmit={handleAddYear}
-                className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#162033]"
-              >
-                <input
-                  type="text"
-                  required
-                  value={newYearLabel}
-                  onChange={(e) => setNewYearLabel(e.target.value)}
-                  placeholder="Add academic year (e.g. 2026/2027)"
-                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-                >
-                  Add Year
-                </button>
-              </form>
-
-              <div className="space-y-2.5">
-                {overview.academicYears.map((yr) => {
-                  const count = overview.documents.filter((d) => d.academicYear === yr).length;
-                  return (
-                    <div
-                      key={yr}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-[#162033]"
-                    >
-                      <div>
-                        <p className="font-mono text-sm font-bold tabular-nums">{yr}</p>
-                        <p className="font-mono text-xs tabular-nums text-slate-500">{count} documents</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setConfirmDelete({
-                            type: 'year',
-                            id: yr,
-                            title: `Academic Year ${yr}`,
-                            detail: 'Removes this academic year from dropdown selectors.',
-                          })
-                        }
-                        className="rounded-lg border border-slate-200 p-1.5 text-red-600 hover:border-red-500 dark:border-slate-700 dark:text-red-400"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 8. WEBSITE SETTINGS & CREDENTIALS */}
+          {/* 7. WEBSITE SETTINGS, ACADEMIC YEARS & CREDENTIALS */}
           {section === 'settings' && (
             <div className="mx-auto max-w-4xl space-y-6">
               <form
@@ -1487,7 +1486,7 @@ export function AdminDashboardApp({
                 <h2 className="font-display text-lg font-bold">Website Information & Contact Details</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold">Website Name</label>
+                    <label className="mb-1 block text-xs font-semibold">Website Title</label>
                     <input
                       type="text"
                       value={siteName}
@@ -1496,11 +1495,20 @@ export function AdminDashboardApp({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold">Institution Name</label>
+                    <label className="mb-1 block text-xs font-semibold">University Name</label>
                     <input
                       type="text"
                       value={institutionName}
                       onChange={(e) => setInstitutionName(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold">Tagline</label>
+                    <input
+                      type="text"
+                      value={tagline}
+                      onChange={(e) => setTagline(e.target.value)}
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
                     />
                   </div>
@@ -1513,7 +1521,7 @@ export function AdminDashboardApp({
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
                     />
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-semibold">Contact Phone</label>
                     <input
                       type="text"
@@ -1550,13 +1558,59 @@ export function AdminDashboardApp({
                 </button>
               </form>
 
+              {/* Academic Years Management */}
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-[#162033]">
+                <h2 className="font-display text-lg font-bold">Manage Academic Years</h2>
+                <form onSubmit={handleAddYear} className="flex gap-3">
+                  <input
+                    type="text"
+                    required
+                    value={newYearLabel}
+                    onChange={(e) => setNewYearLabel(e.target.value)}
+                    placeholder="Add academic year (e.g. 2026/2027)"
+                    className="flex-1 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
+                  >
+                    Add Year
+                  </button>
+                </form>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  {overview.academicYears.map((yr) => (
+                    <div
+                      key={yr}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-[#F4F7FB] px-3.5 py-2.5 dark:border-slate-800 dark:bg-slate-900/60"
+                    >
+                      <span className="font-mono text-xs font-bold tabular-nums">{yr}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmDelete({
+                            type: 'year',
+                            id: yr,
+                            title: `Academic Year ${yr}`,
+                            detail: 'Removes this academic year from dropdown selectors.',
+                          })
+                        }
+                        className="text-red-600 hover:text-red-700 dark:text-red-400"
+                        aria-label={`Delete academic year ${yr}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <form
                 onSubmit={handleSaveCredentials}
                 className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-[#162033]"
               >
-                <h2 className="font-display text-lg font-bold">Change Administrator Credentials</h2>
+                <h2 className="font-display text-lg font-bold">Change Administrator Login Credentials</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Only you can access the Admin Panel. Enter your current password to update login details.
+                  Only you can access the Admin Dashboard. Enter your current password to update login credentials.
                 </p>
                 {credError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -1696,6 +1750,18 @@ export function AdminDashboardApp({
                 >
                   {overview.semesters.map((s) => (
                     <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold">Examination Type</label>
+                <select
+                  value={editExamType}
+                  onChange={(e) => setEditExamType(e.target.value as ExaminationType)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                >
+                  {overview.examinationTypes.map((et) => (
+                    <option key={et} value={et}>{et}</option>
                   ))}
                 </select>
               </div>

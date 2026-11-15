@@ -44,8 +44,8 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
   };
 
   const fillDemo = () => {
-    setIdentifier('admin@campuslibrary.edu');
-    setPassword('AdminLibrary2026!');
+    setIdentifier('admin@dkut.ac.ke');
+    setPassword('AdminDekut2026!');
     setError('');
   };
 
@@ -64,10 +64,10 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
             </span>
             <div>
               <h2 className="font-display text-base font-bold text-[#14213D] dark:text-white">
-                Administrator Login
+                DeKUT Administrator Login
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Private management access
+                Private library management access
               </p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#14213D] dark:text-slate-200">
-              Email or Username
+              Username or Email
             </label>
             <input
               type="text"
@@ -98,7 +98,7 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
               autoFocus
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="admin or admin@campuslibrary.edu"
+              placeholder="admin or admin@dkut.ac.ke"
               className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#14213D] focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
           </div>
@@ -132,7 +132,7 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
             disabled={submitting}
             className="w-full rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
           >
-            {submitting ? 'Signing in...' : 'Sign In to Admin Panel'}
+            {submitting ? 'Signing in...' : 'Login to Admin Dashboard'}
           </button>
 
           <div className="rounded-xl border border-slate-200 bg-[#F4F7FB] p-3 text-[11px] text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
@@ -140,7 +140,7 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
               <div>
                 <p className="font-semibold text-[#14213D] dark:text-white">Default Administrator Access</p>
                 <p className="mt-0.5 font-mono">
-                  admin@campuslibrary.edu · AdminLibrary2026!
+                  admin@dkut.ac.ke · AdminDekut2026!
                 </p>
               </div>
               <button
@@ -152,7 +152,7 @@ export function AdminLoginModal({ open, onClose, onSuccess }: AdminLoginModalPro
               </button>
             </div>
             <p className="mt-1 text-slate-500 dark:text-slate-400">
-              You can update your email, username, and password anytime inside Website Settings.
+              Change your email, username, and password anytime inside Website Settings.
             </p>
           </div>
         </form>

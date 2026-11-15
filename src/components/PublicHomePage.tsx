@@ -7,7 +7,7 @@ interface PublicHomePageProps {
   overview: LibraryOverview;
   onNavigate: (
     page: PublicPage,
-    preset?: { q?: string; departmentId?: string; courseId?: string; academicYear?: string }
+    preset?: { q?: string; school?: string; departmentId?: string; courseId?: string; academicYear?: string }
   ) => void;
   onPreviewDoc: (doc: LibraryDocument) => void;
   onDownloadDoc: (doc: LibraryDocument) => void;
@@ -40,6 +40,10 @@ export function SimpleDocumentCard({
           {doc.courseName} · {doc.documentType}
         </p>
 
+        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          {doc.school} · {doc.examinationType}
+        </p>
+
         {doc.description && (
           <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
             {doc.description}
@@ -62,7 +66,7 @@ export function SimpleDocumentCard({
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
           >
             <Eye className="h-3.5 w-3.5" />
-            <span>View</span>
+            <span>{doc.fileFormat === 'PDF' ? 'View PDF' : 'View File'}</span>
           </button>
           <button
             type="button"
@@ -103,13 +107,13 @@ export function PublicHomePage({
         <div className="grid items-stretch gap-8 lg:grid-cols-12">
           <div className="flex flex-col justify-center lg:col-span-7">
             <p className="text-xs font-semibold uppercase tracking-widest text-[#2563EB]">
-              {overview.settings.institutionName}
+              {overview.settings.institutionName} · {overview.settings.tagline}
             </p>
             <h1 className="mt-2.5 font-display text-3xl font-bold tracking-tight text-[#14213D] dark:text-white sm:text-5xl sm:leading-[1.12]">
-              Find Your Past Papers. Prepare for Your Exams. Achieve More.
+              Welcome to DeKUT Past Papers Library
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
-              Access past examination papers, CATs, revision materials, lecture notes, and other academic resources in one convenient place.
+              Your central academic resource library for accessing past examination papers, CATs, lecture notes, revision materials, and other learning resources at Dedan Kimathi University of Technology.
             </p>
 
             {/* Large Search Bar */}
@@ -121,7 +125,7 @@ export function PublicHomePage({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search course name, course code (e.g. CSC 204), examination year, or title..."
+                    placeholder="Search by course name, course code, or academic year..."
                     className="w-full bg-transparent py-2.5 pl-10 pr-3 text-sm text-[#14213D] placeholder:text-slate-400 focus:outline-none dark:text-white"
                   />
                 </div>
@@ -129,11 +133,12 @@ export function PublicHomePage({
                   type="submit"
                   className="rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap shrink-0"
                 >
-                  Search Papers
+                  Search
                 </button>
               </div>
             </form>
 
+            {/* Three Main Buttons */}
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -145,28 +150,38 @@ export function PublicHomePage({
               <button
                 type="button"
                 onClick={() => onNavigate('study-materials')}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:bg-[#162033] dark:text-white whitespace-nowrap"
+                className="rounded-lg bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
               >
                 Browse Study Materials
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('courses')}
+                className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:bg-[#162033] dark:text-white whitespace-nowrap"
+              >
+                Search Courses
               </button>
             </div>
           </div>
 
           <div className="lg:col-span-5">
-            <div className="relative h-full min-h-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-[#14213D] dark:border-slate-800">
+            <div className="relative h-full min-h-[270px] overflow-hidden rounded-2xl border border-slate-200 bg-[#14213D] dark:border-slate-800">
               <img
                 src="/src/assets/images/hero_campus_library_1794745517077.jpg"
-                alt="Students studying in the campus examination library"
+                alt="Students revising past examination papers in the DeKUT campus library"
                 referrerPolicy="no-referrer"
                 className="h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#101827]/80 via-[#101827]/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#101827]/85 via-[#101827]/25 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 <p className="font-mono text-xs font-semibold text-blue-200 tabular-nums">
                   {overview.stats.totalDocuments} Resources · {overview.stats.totalCourses} Courses · {overview.stats.totalDepartments} Departments
                 </p>
                 <p className="mt-1 font-display text-lg font-bold">
-                  Open Student Access — No Login Required
+                  Dedan Kimathi University of Technology
+                </p>
+                <p className="mt-0.5 text-xs text-slate-200">
+                  Open student access to past papers, CATs & lecture notes — no login required.
                 </p>
               </div>
             </div>
@@ -174,15 +189,15 @@ export function PublicHomePage({
         </div>
       </section>
 
-      {/* Recently Uploaded */}
+      {/* Recently Uploaded Papers */}
       <section className="mx-auto max-w-7xl px-4 sm:px-8">
         <div className="flex items-end justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
           <div>
             <h2 className="font-display text-2xl font-bold text-[#14213D] dark:text-white">
-              Recently Uploaded
+              Recently Uploaded Papers
             </h2>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Latest examination papers and study guides added to the library.
+              Latest examination papers, CATs, and study resources published for DeKUT students.
             </p>
           </div>
           <button
@@ -214,7 +229,7 @@ export function PublicHomePage({
               Popular Past Papers
             </h2>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Most downloaded academic resources across all departments.
+              Most downloaded university examination papers and revision guides.
             </p>
           </div>
         </div>
@@ -248,7 +263,9 @@ export function PublicHomePage({
                     className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#2563EB] dark:border-slate-800 dark:bg-[#162033]"
                   >
                     <div className="min-w-0 pr-3">
-                      <span className="font-mono text-xs font-bold text-[#2563EB]">{dept.code}</span>
+                      <span className="font-mono text-xs font-bold text-[#2563EB]">
+                        {dept.code} · {dept.school}
+                      </span>
                       <p className="truncate text-sm font-semibold text-[#14213D] dark:text-white">
                         {dept.name}
                       </p>
@@ -276,7 +293,7 @@ export function PublicHomePage({
               </button>
             </div>
             <div className="mt-4 space-y-2.5">
-              {overview.courses.slice(0, 6).map((course) => {
+              {overview.courses.slice(0, 7).map((course) => {
                 const count = overview.documents.filter((d) => d.courseId === course.id).length;
                 return (
                   <button
@@ -302,7 +319,7 @@ export function PublicHomePage({
 
           <div className="lg:col-span-3">
             <h2 className="font-display text-xl font-bold text-[#14213D] dark:text-white">
-              Browse by Year
+              Browse by Academic Year
             </h2>
             <div className="mt-4 space-y-2.5">
               {overview.academicYears.map((yr) => {

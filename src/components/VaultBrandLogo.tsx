@@ -1,19 +1,21 @@
 interface VaultBrandLogoProps {
   siteName?: string;
+  subtitle?: string;
   className?: string;
   compact?: boolean;
 }
 
 export function VaultBrandLogo({
-  siteName = 'Campus Past Papers Library',
+  siteName = 'DeKUT Past Papers Library',
+  subtitle,
   className = '',
   compact = false,
 }: VaultBrandLogoProps) {
   return (
     <span className={`inline-flex items-center gap-2.5 whitespace-nowrap shrink-0 ${className}`}>
       <svg
-        width="28"
-        height="28"
+        width="30"
+        height="30"
         viewBox="0 0 32 32"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -41,8 +43,15 @@ export function VaultBrandLogo({
         />
       </svg>
       {!compact && (
-        <span className="font-display text-base font-bold tracking-tight text-[#14213D] dark:text-white sm:text-lg">
-          {siteName}
+        <span className="flex flex-col leading-tight">
+          <span className="font-display text-base font-bold tracking-tight text-[#14213D] dark:text-white sm:text-lg">
+            {siteName}
+          </span>
+          {subtitle && (
+            <span className="text-[10px] font-medium tracking-wide text-slate-500 dark:text-slate-400">
+              {subtitle}
+            </span>
+          )}
         </span>
       )}
     </span>

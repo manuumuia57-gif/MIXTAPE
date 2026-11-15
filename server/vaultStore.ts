@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   DOCUMENT_TYPES,
+  EXAMINATION_TYPES,
   INITIAL_ACADEMIC_YEARS,
   INITIAL_SITE_SETTINGS,
   SEED_COURSES,
@@ -16,6 +17,7 @@ import {
   Course,
   Department,
   DocumentType,
+  ExaminationType,
   LibraryDocument,
   SiteSettings,
 } from '../src/types/vault';
@@ -31,13 +33,14 @@ export interface LibraryDatabaseState {
   academicYears: string[];
   semesters: string[];
   documentTypes: DocumentType[];
+  examinationTypes: ExaminationType[];
   documents: LibraryDocument[];
   settings: SiteSettings;
   contactMessages: ContactMessage[];
 }
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'library-db.json');
+const DB_FILE = path.join(DATA_DIR, 'dekut-library-db.json');
 export const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
 
 export function hashPassword(password: string, salt?: string): string {
@@ -58,17 +61,18 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 function buildInitialState(): LibraryDatabaseState {
   return {
     admin: {
-      id: 'admin-primary',
+      id: 'admin-dekut',
       username: 'admin',
-      email: 'admin@campuslibrary.edu',
-      displayName: 'Institution Administrator',
-      passwordHash: hashPassword('AdminLibrary2026!'),
+      email: 'admin@dkut.ac.ke',
+      displayName: 'DeKUT Library Administrator',
+      passwordHash: hashPassword('AdminDekut2026!'),
     },
     departments: SEED_DEPARTMENTS,
     courses: SEED_COURSES,
     academicYears: INITIAL_ACADEMIC_YEARS,
     semesters: SEMESTERS,
     documentTypes: DOCUMENT_TYPES,
+    examinationTypes: EXAMINATION_TYPES,
     documents: SEED_DOCUMENTS,
     settings: INITIAL_SITE_SETTINGS,
     contactMessages: [],
@@ -86,6 +90,8 @@ class LibraryStore {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         this.state = JSON.parse(raw) as LibraryDatabaseState;
+        if (!this.state.examinationTypes) this.state.examinationTypes = EXAMINATION_TYPES;
+        if (!this.state.settings.tagline) this.state.settings.tagline = INITIAL_SITE_SETTINGS.tagline;
       } catch {
         this.state = buildInitialState();
         this.persist();

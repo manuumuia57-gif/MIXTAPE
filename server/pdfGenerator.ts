@@ -28,20 +28,20 @@ function wrapLines(text: string, maxChars: number): string[] {
 }
 
 function buildQuestions(doc: LibraryDocument): { sectionA: string[]; sectionB: string[] } {
-  if (doc.departmentCode === 'CSC') {
+  if (doc.departmentCode === 'CCS' || doc.departmentCode === 'CIT') {
     return {
       sectionA: [
         `Q1 (a) Define the core algorithmic or system principles in ${doc.courseCode}: ${doc.courseName}. [8 marks]`,
         `Q1 (b) Analyze asymptotic time and space complexity for two key operations studied in this unit. [10 marks]`,
-        `Q1 (c) Write clear pseudocode or SQL/architecture diagrams illustrating correctness and edge-case handling. [12 marks]`,
+        `Q1 (c) Write clear pseudocode, SQL, or network topology diagrams showing edge-case handling. [12 marks]`,
       ],
       sectionB: [
-        `Q2. Design a scalable, normalized system architecture for ${doc.courseName} and justify indexing and concurrency trade-offs. [20 marks]`,
-        `Q3. Trace a complete step-by-step worked example on a sample dataset and prove termination and worst-case bounds. [20 marks]`,
+        `Q2. Design a scalable, normalized system architecture for ${doc.courseName} and justify indexing and security trade-offs. [20 marks]`,
+        `Q3. Trace a complete step-by-step worked example on a sample dataset and verify correctness. [20 marks]`,
       ],
     };
   }
-  if (doc.departmentCode === 'EEE' || doc.departmentCode === 'CVE') {
+  if (doc.departmentCode === 'EEE' || doc.departmentCode === 'EMC' || doc.departmentCode === 'ECE') {
     return {
       sectionA: [
         `Q1 (a) State the governing equations and physical boundary assumptions for ${doc.courseCode}. [8 marks]`,
@@ -49,7 +49,7 @@ function buildQuestions(doc: LibraryDocument): { sectionA: string[]; sectionB: s
         `Q1 (c) Compute safety factors and permissible engineering tolerances under peak design load. [10 marks]`,
       ],
       sectionB: [
-        `Q2. Analyze a multi-stage engineering system using Laplace transforms or limit-state structural equations. [20 marks]`,
+        `Q2. Analyze a multi-stage engineering system using Laplace transforms, thermodynamic cycles, or limit-state design equations. [20 marks]`,
         `Q3. Sketch complete response diagrams, identify critical inflection points, and verify stability criteria. [20 marks]`,
       ],
     };
@@ -58,7 +58,7 @@ function buildQuestions(doc: LibraryDocument): { sectionA: string[]; sectionB: s
     sectionA: [
       `Q1 (a) State and explain the foundational definitions and theorems in ${doc.courseCode}: ${doc.courseName}. [10 marks]`,
       `Q1 (b) Solve the given analytical problem showing all intermediate derivations and units. [10 marks]`,
-      `Q1 (c) Interpret the quantitative results and discuss boundary limitations. [10 marks]`,
+      `Q1 (c) Interpret the quantitative results and discuss boundary assumptions. [10 marks]`,
     ],
     sectionB: [
       `Q2. Construct a comprehensive analytical solution for the applied scenario described in Section B. [20 marks]`,
@@ -87,25 +87,25 @@ export async function ensureExamplePdfFile(doc: LibraryDocument, institutionName
   const page1 = pdfDoc.addPage([595.28, 841.89]);
   const { width, height } = page1.getSize();
 
-  page1.drawRectangle({ x: 0, y: height - 88, width, height: 88, color: navy });
-  page1.drawText('CAMPUS PAST PAPERS LIBRARY  |  EXAMPLE SAMPLE DOCUMENT', {
+  page1.drawRectangle({ x: 0, y: height - 92, width, height: 92, color: navy });
+  page1.drawText('DeKUT PAST PAPERS LIBRARY  |  UNIVERSITY EXAMINATION ARCHIVE', {
     x: 48,
-    y: height - 32,
-    size: 9.5,
+    y: height - 30,
+    size: 9,
     font: fontBold,
     color: rgb(0.75, 0.85, 1),
   });
-  page1.drawText(institutionName, {
+  page1.drawText(institutionName.toUpperCase(), {
     x: 48,
-    y: height - 52,
-    size: 14,
+    y: height - 50,
+    size: 13.5,
     font: fontBold,
     color: rgb(1, 1, 1),
   });
-  page1.drawText(`Department of ${doc.departmentName}`, {
+  page1.drawText(`${doc.school}  ·  Department of ${doc.departmentName}`, {
     x: 48,
     y: height - 70,
-    size: 10,
+    size: 9.5,
     font: fontRegular,
     color: rgb(0.85, 0.89, 0.96),
   });
@@ -114,7 +114,7 @@ export async function ensureExamplePdfFile(doc: LibraryDocument, institutionName
   page1.drawText(`${doc.courseCode}: ${doc.courseName}`, {
     x: 48,
     y,
-    size: 17,
+    size: 16.5,
     font: fontBold,
     color: navy,
   });
@@ -129,11 +129,11 @@ export async function ensureExamplePdfFile(doc: LibraryDocument, institutionName
   y -= 22;
 
   const meta = [
-    `Academic Year: ${doc.academicYear}   |   Semester: ${doc.semester}   |   Type: ${doc.documentType}`,
-    `Note: Demonstration example document for preview and download testing.`,
+    `Academic Year: ${doc.academicYear}   |   Semester: ${doc.semester}   |   ${doc.examinationType}`,
+    `Category: ${doc.documentType}   |   Sample preview document for DeKUT student revision.`,
   ];
   for (const m of meta) {
-    page1.drawText(m, { x: 48, y, size: 9.5, font: fontRegular, color: slate });
+    page1.drawText(m, { x: 48, y, size: 9.2, font: fontRegular, color: slate });
     y -= 15;
   }
 
@@ -160,7 +160,7 @@ export async function ensureExamplePdfFile(doc: LibraryDocument, institutionName
   }
 
   y -= 12;
-  page1.drawText('SECTION B — ANALYTICAL & APPLIED QUESTIONS (40 MARKS)', {
+  page1.drawText('SECTION B — ANSWER ANY TWO QUESTIONS (40 MARKS)', {
     x: 48,
     y,
     size: 11,
@@ -178,14 +178,14 @@ export async function ensureExamplePdfFile(doc: LibraryDocument, institutionName
   }
 
   y -= 16;
-  page1.drawText('DESCRIPTION', { x: 48, y, size: 9.5, font: fontBold, color: slate });
+  page1.drawText('COURSE UNIT NOTES', { x: 48, y, size: 9.5, font: fontBold, color: slate });
   y -= 15;
   for (const line of wrapLines(doc.description, 88)) {
     page1.drawText(line, { x: 48, y, size: 9.5, font: fontItalic, color: slate });
     y -= 14;
   }
 
-  page1.drawText('Campus Past Papers Library  ·  Example Demonstration File  ·  Page 1 of 1', {
+  page1.drawText('Dedan Kimathi University of Technology  ·  DeKUT Past Papers Library  ·  Page 1 of 1', {
     x: 48,
     y: 34,
     size: 8.5,

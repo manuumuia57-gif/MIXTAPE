@@ -1,5 +1,6 @@
--- Campus Past Papers Library — PostgreSQL / Supabase Database Schema
--- Public students can read published academic resources.
+-- DeKUT Past Papers Library — Dedan Kimathi University of Technology
+-- PostgreSQL / Supabase Database Schema
+-- Public students can read published academic resources without signing in.
 -- Only the authenticated Administrator can upload, edit, replace, or delete records.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -10,15 +11,16 @@ CREATE TABLE IF NOT EXISTS admin_users (
   username TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  display_name TEXT NOT NULL DEFAULT 'Site Administrator',
+  display_name TEXT NOT NULL DEFAULT 'DeKUT Library Administrator',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Academic Departments
+-- 2. Academic Departments & Schools/Faculties
 CREATE TABLE IF NOT EXISTS departments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  school TEXT NOT NULL DEFAULT 'School of Computer Science & IT',
   description TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  school TEXT NOT NULL,
   course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   course_code TEXT NOT NULL,
   course_name TEXT NOT NULL,
@@ -60,6 +63,7 @@ CREATE TABLE IF NOT EXISTS documents (
     'Practical Papers',
     'Other Study Materials'
   )),
+  examination_type TEXT NOT NULL DEFAULT 'End of Semester Examination',
   description TEXT DEFAULT '',
   file_format TEXT NOT NULL CHECK (file_format IN ('PDF', 'DOCX', 'PPTX')),
   file_size_bytes BIGINT NOT NULL,
@@ -77,12 +81,13 @@ CREATE INDEX IF NOT EXISTS idx_documents_year ON documents(academic_year);
 -- 6. Website Settings
 CREATE TABLE IF NOT EXISTS site_settings (
   id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  site_name TEXT NOT NULL DEFAULT 'Campus Past Papers Library',
-  institution_name TEXT NOT NULL DEFAULT 'Northbridge University',
-  contact_email TEXT NOT NULL DEFAULT 'library@campus.edu',
-  contact_phone TEXT NOT NULL DEFAULT '+1 (555) 234-8900',
+  site_name TEXT NOT NULL DEFAULT 'DeKUT Past Papers Library',
+  institution_name TEXT NOT NULL DEFAULT 'Dedan Kimathi University of Technology',
+  tagline TEXT NOT NULL DEFAULT 'Access. Revise. Prepare. Succeed.',
+  contact_email TEXT NOT NULL DEFAULT 'library@dkut-papers.ac.ke',
+  contact_phone TEXT NOT NULL DEFAULT '+254 (0) 61 205 0000',
   about_text TEXT NOT NULL DEFAULT '',
-  copyright_text TEXT NOT NULL DEFAULT '© 2026 Campus Past Papers Library'
+  copyright_text TEXT NOT NULL DEFAULT '© 2026 Dedan Kimathi University of Technology — DeKUT Past Papers Library.'
 );
 
 -- 7. Contact Messages

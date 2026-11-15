@@ -14,16 +14,18 @@ import { PdfViewerModal } from './components/PdfViewerModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminDashboardApp } from './components/AdminDashboardApp';
 
-const ADMIN_TOKEN_KEY = 'cppl_admin_token';
-const THEME_KEY = 'cppl_theme';
+const ADMIN_TOKEN_KEY = 'dekut_admin_token';
+const THEME_KEY = 'dekut_theme';
 
 const EMPTY_FILTERS: BrowseFilters = {
   q: '',
+  school: '',
   departmentId: '',
   courseId: '',
   academicYear: '',
   semester: '',
   documentType: '',
+  examinationType: '',
 };
 
 export function App() {
@@ -142,13 +144,13 @@ export function App() {
     setAdminUser(null);
     setInAdminMode(false);
     setPublicPage('home');
-    pushToast('Signed out of Administrator Panel.', 'info');
+    pushToast('Signed out of DeKUT Admin Dashboard.', 'info');
   };
 
   if (loading || !overview) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB] text-sm font-medium text-[#14213D] dark:bg-[#101827] dark:text-slate-200">
-        Loading Campus Past Papers Library...
+        Loading DeKUT Past Papers Library...
       </div>
     );
   }
@@ -174,13 +176,16 @@ export function App() {
         <div className="flex min-h-screen flex-col bg-[#F4F7FB] text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
           {/* Top Navigation Bar */}
           <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#162033]/95">
-            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
               <button
                 type="button"
                 onClick={() => handleNavigate('home')}
                 className="text-left focus:outline-none"
               >
-                <VaultBrandLogo siteName={overview.settings.siteName} />
+                <VaultBrandLogo
+                  siteName={overview.settings.siteName}
+                  subtitle={overview.settings.institutionName}
+                />
               </button>
 
               <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary Navigation">
@@ -226,7 +231,7 @@ export function App() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
                   >
                     <Lock className="h-3.5 w-3.5" />
-                    <span>Admin Panel</span>
+                    <span>Admin Dashboard</span>
                   </button>
                 ) : (
                   <button
@@ -303,33 +308,44 @@ export function App() {
             )}
           </main>
 
-          {/* Simple Institutional Footer */}
+          {/* University Footer */}
           <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-600 dark:border-slate-800 dark:bg-[#162033] dark:text-slate-400">
-            <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 px-4 sm:flex-row sm:items-center sm:px-8">
-              <div>
+            <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:grid-cols-12 sm:px-8">
+              <div className="sm:col-span-6">
                 <p className="font-display text-sm font-bold text-[#14213D] dark:text-white">
-                  {overview.settings.siteName}
+                  {overview.settings.institutionName} — {overview.settings.siteName}
                 </p>
-                <p className="mt-1">
-                  {overview.settings.institutionName} · {overview.settings.contactEmail} · {overview.settings.contactPhone}
+                <p className="mt-1.5 max-w-xl leading-relaxed text-slate-500 dark:text-slate-400">
+                  {overview.settings.aboutText}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <button type="button" onClick={() => handleNavigate('past-papers')} className="hover:text-[#2563EB]">
-                  Past Papers
-                </button>
-                <button type="button" onClick={() => handleNavigate('study-materials')} className="hover:text-[#2563EB]">
-                  Study Materials
-                </button>
-                <button type="button" onClick={() => handleNavigate('about')} className="hover:text-[#2563EB]">
-                  About
-                </button>
-                <button type="button" onClick={() => handleNavigate('contact')} className="hover:text-[#2563EB]">
-                  Contact
-                </button>
+              <div className="sm:col-span-3">
+                <p className="font-semibold text-[#14213D] dark:text-white">Contact Information</p>
+                <p className="mt-1.5">{overview.settings.contactEmail}</p>
+                <p className="mt-1">{overview.settings.contactPhone}</p>
+              </div>
+              <div className="sm:col-span-3">
+                <p className="font-semibold text-[#14213D] dark:text-white">Quick Links</p>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                  <button type="button" onClick={() => handleNavigate('past-papers')} className="hover:text-[#2563EB]">
+                    Past Papers
+                  </button>
+                  <button type="button" onClick={() => handleNavigate('study-materials')} className="hover:text-[#2563EB]">
+                    Study Materials
+                  </button>
+                  <button type="button" onClick={() => handleNavigate('courses')} className="hover:text-[#2563EB]">
+                    Courses
+                  </button>
+                  <button type="button" onClick={() => handleNavigate('about')} className="hover:text-[#2563EB]">
+                    About
+                  </button>
+                  <button type="button" onClick={() => handleNavigate('contact')} className="hover:text-[#2563EB]">
+                    Contact
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="mx-auto mt-5 max-w-7xl border-t border-slate-100 px-4 pt-4 text-[11px] text-slate-500 dark:border-slate-800 sm:px-8">
+            <div className="mx-auto mt-6 max-w-7xl border-t border-slate-100 px-4 pt-4 text-[11px] text-slate-500 dark:border-slate-800 sm:px-8">
               {overview.settings.copyrightText}
             </div>
           </footer>

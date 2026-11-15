@@ -5,7 +5,7 @@ import path from 'node:path';
 import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
-import { DocumentType, FileFormat, LibraryDocument } from './src/types/vault';
+import { DocumentType, ExaminationType, FileFormat, LibraryDocument } from './src/types/vault';
 import {
   hashPassword,
   libraryStore,
@@ -15,7 +15,7 @@ import {
 import { ensureExamplePdfFile } from './server/pdfGenerator';
 
 const PORT = 3000;
-const AUTH_SECRET = process.env.AUTH_SECRET || 'campus-past-papers-library-secret-2026';
+const AUTH_SECRET = process.env.AUTH_SECRET || 'dekut-past-papers-library-secret-2026';
 
 interface AdminTokenPayload {
   id: string;
@@ -60,7 +60,6 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 function validateFileMagicBytes(buffer: Buffer, originalName: string): FileFormat | null {
   if (buffer.length < 8) return null;
 
-  // Reject executables / scripts
   if (
     (buffer[0] === 0x4d && buffer[1] === 0x5a) ||
     (buffer[0] === 0x7f && buffer[1] === 0x45 && buffer[2] === 0x4c && buffer[3] === 0x46) ||
@@ -100,7 +99,7 @@ async function startServer() {
   });
 
   app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({ ok: true, service: 'Campus Past Papers Library' });
+    res.json({ ok: true, service: 'DeKUT Past Papers Library' });
   });
 
   // -------------------------------------------------------------------------
@@ -116,13 +115,16 @@ async function startServer() {
     const totalPapers = state.documents.filter((d) => paperTypes.has(d.documentType)).length;
     const totalStudyMaterials = state.documents.length - totalPapers;
     const totalDownloads = state.documents.reduce((sum, d) => sum + d.downloadsCount, 0);
+    const schools = Array.from(new Set(state.departments.map((d) => d.school).filter(Boolean)));
 
     res.json({
+      schools,
       departments: state.departments,
       courses: state.courses,
       academicYears: state.academicYears,
       semesters: state.semesters,
       documentTypes: state.documentTypes,
+      examinationTypes: state.examinationTypes,
       documents: state.documents,
       settings: state.settings,
       stats: {
@@ -239,6 +241,16 @@ async function startServer() {
     const academicYear = String(req.body?.academicYear || state.academicYears[0] || '2025/2026').trim();
     const semester = String(req.body?.semester || 'Semester 1').trim();
     const documentType = String(req.body?.documentType || 'Past Examination Papers') as DocumentType;
+    const examinationType = String(
+      req.body?.examinationType ||
+        (documentType === 'CAT Papers'
+          ? 'Continuous Assessment Test (CAT)'
+          : documentType === 'Practical Papers'
+          ? 'Practical / Laboratory Assessment'
+          : documentType === 'Past Examination Papers'
+          ? 'End of Semester Examination'
+          : 'Coursework & Study Resource')
+    ) as ExaminationType;
     const description = String(req.body?.description || '').trim();
 
     if (!title) return res.status(400).json({ error: 'Document title is required.' });
@@ -246,16 +258,16 @@ async function startServer() {
     const dept = state.departments.find((d) => d.id === departmentId) || state.departments[0];
     let course = state.courses.find((c) => c.id === courseId);
 
-    // If admin typed a custom course name/code not yet in courses list, create it automatically
     if (!course && courseCodeInput && courseNameInput) {
       course = {
         id: `crs-${crypto.randomUUID().slice(0, 8)}`,
         departmentId: dept.id,
         departmentCode: dept.code,
         departmentName: dept.name,
+        school: dept.school,
         code: courseCodeInput,
         name: courseNameInput,
-        description: `${courseNameInput} academic course unit.`,
+        description: `${courseNameInput} academic course unit at DeKUT.`,
         createdAt: new Date().toISOString(),
       };
       state.courses.push(course);
@@ -275,12 +287,14 @@ async function startServer() {
       departmentId: dept.id,
       departmentCode: dept.code,
       departmentName: dept.name,
+      school: dept.school,
       courseId: course.id,
       courseCode: courseCodeInput || course.code,
       courseName: courseNameInput || course.name,
       academicYear,
       semester,
       documentType,
+      examinationType,
       description: description || `${documentType} for ${course.code} — ${course.name}.`,
       fileFormat: format,
       fileSizeBytes: file.size,
@@ -312,6 +326,9 @@ async function startServer() {
     if (typeof req.body?.documentType === 'string') {
       doc.documentType = req.body.documentType as DocumentType;
     }
+    if (typeof req.body?.examinationType === 'string') {
+      doc.examinationType = req.body.examinationType as ExaminationType;
+    }
     if (typeof req.body?.description === 'string') {
       doc.description = req.body.description;
     }
@@ -324,6 +341,7 @@ async function startServer() {
         doc.departmentId = course.departmentId;
         doc.departmentCode = course.departmentCode;
         doc.departmentName = course.departmentName;
+        doc.school = course.school;
       }
     }
 
@@ -390,6 +408,7 @@ async function startServer() {
     const state = libraryStore.getState();
     const code = String(req.body?.code || '').trim().toUpperCase();
     const name = String(req.body?.name || '').trim();
+    const school = String(req.body?.school || 'School of Computer Science & IT').trim();
     const description = String(req.body?.description || '').trim();
     if (!code || !name) return res.status(400).json({ error: 'Department code and name are required.' });
     if (state.departments.some((d) => d.code === code)) {
@@ -399,7 +418,8 @@ async function startServer() {
       id: `dept-${crypto.randomUUID().slice(0, 8)}`,
       code,
       name,
-      description: description || `${name} department.`,
+      school,
+      description: description || `${name} department at DeKUT.`,
       createdAt: new Date().toISOString(),
     };
     state.departments.push(dept);
@@ -413,19 +433,21 @@ async function startServer() {
     if (!dept) return res.status(404).json({ error: 'Department not found.' });
     if (typeof req.body?.code === 'string' && req.body.code.trim()) dept.code = req.body.code.trim().toUpperCase();
     if (typeof req.body?.name === 'string' && req.body.name.trim()) dept.name = req.body.name.trim();
+    if (typeof req.body?.school === 'string' && req.body.school.trim()) dept.school = req.body.school.trim();
     if (typeof req.body?.description === 'string') dept.description = req.body.description;
 
-    // Cascade updated department labels to courses & documents
     state.courses.forEach((c) => {
       if (c.departmentId === dept.id) {
         c.departmentCode = dept.code;
         c.departmentName = dept.name;
+        c.school = dept.school;
       }
     });
     state.documents.forEach((d) => {
       if (d.departmentId === dept.id) {
         d.departmentCode = dept.code;
         d.departmentName = dept.name;
+        d.school = dept.school;
       }
     });
 
@@ -461,6 +483,7 @@ async function startServer() {
       departmentId: dept.id,
       departmentCode: dept.code,
       departmentName: dept.name,
+      school: dept.school,
       code,
       name,
       description: description || `${name} syllabus and past examination materials.`,
@@ -485,6 +508,7 @@ async function startServer() {
         course.departmentId = dept.id;
         course.departmentCode = dept.code;
         course.departmentName = dept.name;
+        course.school = dept.school;
       }
     }
 
@@ -495,6 +519,7 @@ async function startServer() {
         d.departmentId = course.departmentId;
         d.departmentCode = course.departmentCode;
         d.departmentName = course.departmentName;
+        d.school = course.school;
       }
     });
 
@@ -541,6 +566,7 @@ async function startServer() {
     if (typeof req.body?.institutionName === 'string' && req.body.institutionName.trim()) {
       s.institutionName = req.body.institutionName.trim();
     }
+    if (typeof req.body?.tagline === 'string' && req.body.tagline.trim()) s.tagline = req.body.tagline.trim();
     if (typeof req.body?.contactEmail === 'string' && req.body.contactEmail.trim()) {
       s.contactEmail = req.body.contactEmail.trim();
     }
@@ -601,7 +627,7 @@ async function startServer() {
   });
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Campus Past Papers Library listening on http://0.0.0.0:${PORT}`);
+    console.log(`DeKUT Past Papers Library listening on http://0.0.0.0:${PORT}`);
   });
 }
 
