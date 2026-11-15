@@ -1,678 +1,370 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Bell, LogOut, Menu, Moon, Sun, UserCheck, X } from 'lucide-react';
-import { useVaultStore } from './hooks/useVaultStore';
-import { ExamPrepPlan, ToastMessage, VaultDocument, VaultSection } from './types/vault';
-import { LandingPage } from './components/LandingPage';
-import { VaultSidebar } from './components/VaultSidebar';
-import { VaultAuthModal } from './components/VaultAuthModal';
-import { DocumentDetailModal } from './components/DocumentDetailModal';
+import { Lock, Menu, Moon, Sun, X } from 'lucide-react';
+import {
+  AdminUser,
+  LibraryDocument,
+  LibraryOverview,
+  PublicPage,
+  ToastMessage,
+} from './types/vault';
+import { VaultBrandLogo } from './components/VaultBrandLogo';
+import { PublicHomePage } from './components/PublicHomePage';
+import { BrowseFilters, PublicBrowsePage } from './components/PublicBrowsePage';
 import { PdfViewerModal } from './components/PdfViewerModal';
-import { DashboardView } from './components/DashboardView';
-import { LibraryFilters, LibraryView } from './components/LibraryView';
-import { CoursesView } from './components/CoursesView';
-import { MarkingSchemesView } from './components/MarkingSchemesView';
-import { UploadCenterView } from './components/UploadCenterView';
-import { BookmarksView } from './components/BookmarksView';
-import { ExamPrepView } from './components/ExamPrepView';
-import { ContributorView } from './components/ContributorView';
-import { ModerationView } from './components/ModerationView';
-import { AdminPanelView } from './components/AdminPanelView';
-import { SupportView } from './components/SupportView';
+import { AdminLoginModal } from './components/AdminLoginModal';
+import { AdminDashboardApp } from './components/AdminDashboardApp';
 
-const SECTION_TITLES: Record<VaultSection, string> = {
-  home: 'Homepage',
-  dashboard: 'Personalized Dashboard',
-  library: 'Past Papers & Resource Library',
-  courses: 'Courses & Departments',
-  'marking-schemes': 'Marking Schemes & Solutions',
-  upload: 'Document Upload Center',
-  bookmarks: 'Bookmarks & Personal Library',
-  'exam-prep': 'Examination Preparation Center',
-  contributor: 'Contributor Profile',
-  moderation: 'Moderation & Approval Queue',
-  admin: 'Administrator Console',
-  support: 'Announcements & Support Center',
-};
+const ADMIN_TOKEN_KEY = 'cppl_admin_token';
+const THEME_KEY = 'cppl_theme';
 
-const INITIAL_FILTERS: LibraryFilters = {
+const EMPTY_FILTERS: BrowseFilters = {
   q: '',
-  institutionId: '',
-  campusId: '',
-  facultyId: '',
   departmentId: '',
-  programmeId: '',
   courseId: '',
   academicYear: '',
   semester: '',
-  category: '',
-  fileFormat: '',
-  sort: 'newest',
+  documentType: '',
 };
 
-export default function App() {
-  const store = useVaultStore();
+export function App() {
+  const [overview, setOverview] = useState<LibraryOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [publicPage, setPublicPage] = useState<PublicPage>('home');
+  const [browseFilters, setBrowseFilters] = useState<BrowseFilters>(EMPTY_FILTERS);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const [activeSection, setActiveSection] = useState<VaultSection>('home');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<LibraryDocument | null>(null);
 
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [adminToken, setAdminToken] = useState<string | null>(() =>
+    localStorage.getItem(ADMIN_TOKEN_KEY)
+  );
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [inAdminMode, setInAdminMode] = useState(false);
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
 
-  const [filters, setFilters] = useState<LibraryFilters>(INITIAL_FILTERS);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-
-  const [detailDoc, setDetailDoc] = useState<VaultDocument | null>(null);
-  const [pdfViewerDoc, setPdfViewerDoc] = useState<VaultDocument | null>(null);
-  const [pendingModCount, setPendingModCount] = useState<number>(2);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === 'dark' ? 'dark' : 'light';
+  });
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const notify = useCallback((text: string, tone: 'info' | 'success' | 'warning' = 'info') => {
+  const pushToast = useCallback((text: string, tone: ToastMessage['tone'] = 'info') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setToasts((prev) => [...prev.slice(-2), { id, text, tone }]);
-    window.setTimeout(() => {
+    setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4200);
+    }, 3600);
   }, []);
 
-  // Load pending count for moderators/admins/lecturers
   useEffect(() => {
-    if (!store.authToken || !store.user || !['lecturer', 'moderator', 'admin'].includes(store.user.role)) {
-      setPendingModCount(0);
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const fetchOverview = useCallback(async () => {
+    try {
+      const res = await fetch('/api/library/overview');
+      if (res.ok) {
+        const data = (await res.json()) as LibraryOverview;
+        setOverview(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
+
+  useEffect(() => {
+    if (!adminToken) {
+      setAdminUser(null);
+      setInAdminMode(false);
       return;
     }
-    fetch('/api/documents?status=pending', {
-      headers: { Authorization: `Bearer ${store.authToken}` },
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${adminToken}` },
     })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d && Array.isArray(d.documents)) setPendingModCount(d.documents.length);
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.admin) {
+          setAdminUser(data.admin);
+        } else {
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+          setAdminToken(null);
+          setAdminUser(null);
+          setInAdminMode(false);
+        }
       })
       .catch(() => {});
-  }, [store.authToken, store.user, store.documents]);
+  }, [adminToken]);
 
-  const navigateToSection = (
-    section: VaultSection,
-    preset?: { q?: string; departmentId?: string; academicYear?: string; category?: string; courseId?: string }
-  ) => {
+  const handleNavigate = (page: PublicPage, preset?: Partial<BrowseFilters>) => {
+    setPublicPage(page);
     if (preset) {
-      if (section === 'courses' && preset.courseId) {
-        setSelectedCourseId(preset.courseId);
-      } else {
-        setFilters({
-          ...INITIAL_FILTERS,
-          q: preset.q || '',
-          departmentId: preset.departmentId || '',
-          academicYear: preset.academicYear || '',
-          category: preset.category || '',
-          courseId: preset.courseId || '',
-        });
-        if (preset.q) store.recordSearchTerm(preset.q);
-      }
+      setBrowseFilters({ ...EMPTY_FILTERS, ...preset });
+    } else if (page !== 'past-papers' && page !== 'study-materials') {
+      setBrowseFilters(EMPTY_FILTERS);
     }
-    setActiveSection(section);
-    setNotifOpen(false);
+    setMobileNavOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenDocDetail = async (doc: VaultDocument) => {
-    setDetailDoc(doc);
-    const updated = await store.recordDocumentView(doc.id);
-    if (updated) setDetailDoc(updated);
+  const handleDownloadDoc = (doc: LibraryDocument) => {
+    const link = document.createElement('a');
+    link.href = `/api/documents/${doc.id}/download`;
+    link.download = doc.originalFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    pushToast(`Downloading ${doc.originalFilename}`, 'success');
+    setTimeout(() => {
+      fetchOverview();
+    }, 700);
   };
 
-  const handlePreviewPdf = async (doc: VaultDocument) => {
-    setPdfViewerDoc(doc);
-    await store.recordDocumentView(doc.id);
+  const handleAdminLoginSuccess = (token: string, admin: AdminUser) => {
+    localStorage.setItem(ADMIN_TOKEN_KEY, token);
+    setAdminToken(token);
+    setAdminUser(admin);
+    setAdminLoginOpen(false);
+    setInAdminMode(true);
+    pushToast(`Signed in as ${admin.displayName}`, 'success');
   };
 
-  const handleToggleBookmark = async (docId: string) => {
-    const result = await store.toggleBookmark(docId);
-    if (!result.ok) {
-      notify(result.error || 'Sign in required.', 'warning');
-      setAuthTab('login');
-      setAuthModalOpen(true);
-      return;
-    }
-    notify(result.bookmarked ? 'Saved to your Bookmarks.' : 'Removed from Bookmarks.', 'success');
+  const handleAdminLogout = () => {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    setAdminToken(null);
+    setAdminUser(null);
+    setInAdminMode(false);
+    setPublicPage('home');
+    pushToast('Signed out of Administrator Panel.', 'info');
   };
 
-  const handleToggleCollectionItem = async (collectionId: string, docId: string) => {
-    const res = await store.apiFetch(`/api/collections/${collectionId}/items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: docId }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setCollections((prev) => prev.map((c) => (c.id === collectionId ? data.collection : c)));
-      notify('Updated collection items.', 'success');
-    }
-  };
-
-  const handleSubmitReport = async (doc: VaultDocument, reportType: string, details: string) => {
-    if (!store.authToken) {
-      notify('Please sign in to report an issue.', 'warning');
-      setAuthModalOpen(true);
-      return;
-    }
-    const res = await store.apiFetch('/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: doc.id, reportType, details }),
-    });
-    if (res.ok) {
-      notify('Report submitted to Academic Moderators.', 'success');
-    } else {
-      const d = await res.json();
-      notify(d.error || 'Unable to submit report.', 'warning');
-    }
-  };
-
-  const handleCreateCollection = async (name: string, description: string) => {
-    const res = await store.apiFetch('/api/collections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setCollections((prev) => [data.collection, ...prev]);
-      notify(`Created collection "${name}".`, 'success');
-    }
-  };
-
-  const handleDeleteCollection = async (id: string) => {
-    const res = await store.apiFetch(`/api/collections/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      store.setCollections((prev) => prev.filter((c) => c.id !== id));
-      notify('Collection deleted.', 'info');
-    }
-  };
-
-  const handleCreateExamPlan = async (payload: {
-    courseCode: string;
-    courseName: string;
-    examTitle: string;
-    examDate: string;
-    venue: string;
-    checklist: string[];
-  }) => {
-    const res = await store.apiFetch('/api/exam-plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setExamPlans((prev) => [data.plan, ...prev]);
-      notify(`Added revision plan for ${payload.courseCode}.`, 'success');
-    }
-  };
-
-  const handleToggleChecklistItem = async (plan: ExamPrepPlan, itemId: string) => {
-    const nextChecklist = plan.checklist.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
+  if (loading || !overview) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB] text-sm font-medium text-[#14213D] dark:bg-[#101827] dark:text-slate-200">
+        Loading Campus Past Papers Library...
+      </div>
     );
-    const res = await store.apiFetch(`/api/exam-plans/${plan.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checklist: nextChecklist }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setExamPlans((prev) => prev.map((p) => (p.id === plan.id ? data.plan : p)));
-    }
-  };
-
-  const handleAddChecklistItem = async (plan: ExamPrepPlan, label: string) => {
-    const nextChecklist = [
-      ...plan.checklist,
-      { id: `chk-${Date.now()}`, label, completed: false },
-    ];
-    const res = await store.apiFetch(`/api/exam-plans/${plan.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checklist: nextChecklist }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setExamPlans((prev) => prev.map((p) => (p.id === plan.id ? data.plan : p)));
-    }
-  };
-
-  const handleDeleteExamPlan = async (planId: string) => {
-    const res = await store.apiFetch(`/api/exam-plans/${planId}`, { method: 'DELETE' });
-    if (res.ok) {
-      store.setExamPlans((prev) => prev.filter((p) => p.id !== planId));
-      notify('Revision plan removed.', 'info');
-    }
-  };
-
-  const handleSubmitSupport = async (payload: {
-    senderName: string;
-    senderEmail: string;
-    requestType: string;
-    subject: string;
-    message: string;
-  }) => {
-    const res = await store.apiFetch('/api/support', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      store.setMySupportRequests((prev) => [data.ticket, ...prev]);
-      notify('Support request submitted.', 'success');
-      return true;
-    }
-    const err = await res.json();
-    notify(err.error || 'Failed to submit support request.', 'warning');
-    return false;
-  };
-
-  const unreadNotifs = store.notifications.filter((n) => !n.read).length;
-  const relatedForDetail = detailDoc
-    ? store.documents
-        .filter((d) => d.id !== detailDoc.id && (d.courseId === detailDoc.courseId || d.departmentId === detailDoc.departmentId))
-        .slice(0, 4)
-    : [];
+  }
 
   return (
     <>
-      {activeSection === 'home' ? (
-        <LandingPage
-          theme={store.theme}
-          onToggleTheme={store.toggleTheme}
-          user={store.user}
-          catalog={store.catalog}
-          documents={store.documents}
-          bookmarkedIds={store.bookmarkedIds}
-          onNavigateSection={navigateToSection}
-          onOpenAuth={(tab) => {
-            setAuthTab(tab);
-            setAuthModalOpen(true);
-          }}
-          onOpenDocDetail={handleOpenDocDetail}
-          onPreviewPdf={handlePreviewPdf}
-          onDownload={store.triggerDownload}
-          onToggleBookmark={handleToggleBookmark}
+      {inAdminMode && adminUser && adminToken ? (
+        <AdminDashboardApp
+          overview={overview}
+          admin={adminUser}
+          token={adminToken}
+          theme={theme}
+          onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          onRefreshOverview={fetchOverview}
+          onUpdateAdmin={setAdminUser}
+          onPreviewDoc={setPreviewDoc}
+          onDownloadDoc={handleDownloadDoc}
+          onExitToPublic={() => setInAdminMode(false)}
+          onLogout={handleAdminLogout}
+          onToast={pushToast}
         />
       ) : (
-        <div className="flex min-h-screen bg-[#F4F7FB] text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
-          <VaultSidebar
-            activeSection={activeSection}
-            userRole={store.user?.role || null}
-            pendingModerationCount={pendingModCount}
-            mobileOpen={mobileMenuOpen}
-            onCloseMobile={() => setMobileMenuOpen(false)}
-            onSelectSection={(sec) => navigateToSection(sec)}
-            onGoHome={() => setActiveSection('home')}
-          />
+        <div className="flex min-h-screen flex-col bg-[#F4F7FB] text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
+          {/* Top Navigation Bar */}
+          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#162033]/95">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-8">
+              <button
+                type="button"
+                onClick={() => handleNavigate('home')}
+                className="text-left focus:outline-none"
+              >
+                <VaultBrandLogo siteName={overview.settings.siteName} />
+              </button>
 
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Workspace Header */}
-            <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-slate-800 dark:bg-[#162033]/95 sm:px-8">
-              <div className="flex min-w-0 items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(true)}
-                  aria-label="Open navigation menu"
-                  className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 lg:hidden"
-                >
-                  <Menu className="h-4.5 w-4.5" />
-                </button>
-                <div className="flex min-w-0 items-center gap-2 text-sm">
+              <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary Navigation">
+                {(
+                  [
+                    { id: 'home', label: 'Home' },
+                    { id: 'past-papers', label: 'Past Papers' },
+                    { id: 'study-materials', label: 'Study Materials' },
+                    { id: 'courses', label: 'Courses' },
+                    { id: 'about', label: 'About' },
+                    { id: 'contact', label: 'Contact' },
+                  ] as { id: PublicPage; label: string }[]
+                ).map((item) => (
                   <button
+                    key={item.id}
                     type="button"
-                    onClick={() => setActiveSection('home')}
-                    className="hidden font-medium text-slate-500 hover:text-[#2563EB] sm:inline whitespace-nowrap"
+                    onClick={() => handleNavigate(item.id)}
+                    className={`text-sm font-medium transition-colors whitespace-nowrap ${
+                      publicPage === item.id
+                        ? 'font-semibold text-[#2563EB]'
+                        : 'text-slate-600 hover:text-[#14213D] dark:text-slate-300 dark:hover:text-white'
+                    }`}
                   >
-                    Campus Exam Vault
+                    {item.label}
                   </button>
-                  <span className="hidden text-slate-300 dark:text-slate-600 sm:inline" aria-hidden="true">
-                    /
-                  </span>
-                  <span className="truncate font-display font-bold text-[#14213D] dark:text-white">
-                    {SECTION_TITLES[activeSection]}
-                  </span>
-                </div>
-              </div>
+                ))}
+              </nav>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={store.toggleTheme}
-                  aria-label={store.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+                  aria-label="Toggle light or dark mode"
                   className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  {store.theme === 'dark' ? <Sun className="h-4 w-4 text-[#F4B400]" /> : <Moon className="h-4 w-4" />}
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </button>
 
-                {store.user && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setNotifOpen((o) => !o)}
-                      aria-label="Notifications"
-                      className="relative rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <Bell className="h-4 w-4" />
-                      {unreadNotifs > 0 && (
-                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#2563EB] px-1 font-mono text-[10px] font-bold text-white tabular-nums">
-                          {unreadNotifs}
-                        </span>
-                      )}
-                    </button>
-
-                    {notifOpen && (
-                      <div className="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-[#162033]">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-slate-800">
-                          <h3 className="font-display text-sm font-bold text-[#14213D] dark:text-white">
-                            Notifications ({unreadNotifs} unread)
-                          </h3>
-                          <button
-                            type="button"
-                            onClick={store.markAllNotificationsRead}
-                            className="text-xs font-semibold text-[#2563EB] hover:underline"
-                          >
-                            Mark all read
-                          </button>
-                        </div>
-                        <div className="mt-2 max-h-72 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
-                          {store.notifications.length === 0 ? (
-                            <p className="py-4 text-center text-xs text-slate-500">No notifications yet.</p>
-                          ) : (
-                            store.notifications.map((n) => (
-                              <div key={n.id} className={`py-2.5 ${n.read ? 'opacity-65' : ''}`}>
-                                <p className="text-[11px] font-semibold text-[#2563EB]">{n.category}</p>
-                                <p className="text-xs font-semibold text-[#14213D] dark:text-white">{n.title}</p>
-                                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{n.message}</p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {store.user ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthTab('login');
-                        setAuthModalOpen(true);
-                      }}
-                      className="hidden items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:text-white sm:inline-flex whitespace-nowrap"
-                    >
-                      <UserCheck className="h-3.5 w-3.5 text-[#2563EB]" />
-                      <span>{store.user.fullName.split(' ')[0]} ({store.user.role})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        store.logout();
-                        notify('Signed out.', 'info');
-                      }}
-                      aria-label="Sign out"
-                      className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </button>
-                  </div>
+                {adminUser ? (
+                  <button
+                    type="button"
+                    onClick={() => setInAdminMode(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Admin Panel</span>
+                  </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setAuthTab('login');
-                      setAuthModalOpen(true);
-                    }}
-                    className="rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
+                    onClick={() => setAdminLoginOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:bg-slate-900 dark:text-white whitespace-nowrap"
                   >
-                    Sign In
+                    <Lock className="h-3.5 w-3.5 text-[#2563EB]" />
+                    <span>Admin Login</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen((o) => !o)}
+                  aria-label="Toggle navigation menu"
+                  className="rounded-lg border border-slate-200 p-2 text-slate-600 dark:border-slate-700 dark:text-slate-300 lg:hidden"
+                >
+                  {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+                </button>
               </div>
-            </header>
+            </div>
 
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8 sm:py-8">
-              {activeSection === 'dashboard' && (
-                <DashboardView
-                  user={store.user}
-                  documents={store.documents}
-                  bookmarkedIds={store.bookmarkedIds}
-                  recentViewIds={store.recentViewIds}
-                  recentDownloadIds={store.recentDownloadIds}
-                  myUploads={store.myUploads}
-                  announcements={store.catalog?.announcements || []}
-                  onNavigate={navigateToSection}
-                  onOpenAuth={(tab) => {
-                    setAuthTab(tab);
-                    setAuthModalOpen(true);
-                  }}
-                  onOpenDocDetail={handleOpenDocDetail}
-                  onPreviewPdf={handlePreviewPdf}
-                  onDownload={store.triggerDownload}
-                />
-              )}
+            {mobileNavOpen && (
+              <nav className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-[#162033] lg:hidden">
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { id: 'home', label: 'Home' },
+                      { id: 'past-papers', label: 'Past Papers' },
+                      { id: 'study-materials', label: 'Study Materials' },
+                      { id: 'courses', label: 'Courses' },
+                      { id: 'about', label: 'About' },
+                      { id: 'contact', label: 'Contact' },
+                    ] as { id: PublicPage; label: string }[]
+                  ).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleNavigate(item.id)}
+                      className={`rounded-lg px-3 py-2 text-left text-xs font-semibold ${
+                        publicPage === item.id
+                          ? 'bg-[#2563EB] text-white'
+                          : 'bg-[#F4F7FB] text-[#14213D] dark:bg-slate-900 dark:text-slate-200'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </nav>
+            )}
+          </header>
 
-              {activeSection === 'library' && (
-                <LibraryView
-                  catalog={store.catalog}
-                  documents={store.documents}
-                  bookmarkedIds={store.bookmarkedIds}
-                  recentSearches={store.recentSearches}
-                  filters={filters}
-                  onChangeFilters={setFilters}
-                  onRecordSearch={store.recordSearchTerm}
-                  onClearRecentSearches={store.clearRecentSearches}
-                  onOpenDocDetail={handleOpenDocDetail}
-                  onPreviewPdf={handlePreviewPdf}
-                  onDownload={store.triggerDownload}
-                  onToggleBookmark={handleToggleBookmark}
-                />
-              )}
+          {/* Main Student Content */}
+          <main className="flex-1">
+            {publicPage === 'home' ? (
+              <PublicHomePage
+                overview={overview}
+                onNavigate={handleNavigate}
+                onPreviewDoc={setPreviewDoc}
+                onDownloadDoc={handleDownloadDoc}
+              />
+            ) : (
+              <PublicBrowsePage
+                page={publicPage}
+                overview={overview}
+                filters={browseFilters}
+                onChangeFilters={setBrowseFilters}
+                onNavigate={handleNavigate}
+                onPreviewDoc={setPreviewDoc}
+                onDownloadDoc={handleDownloadDoc}
+              />
+            )}
+          </main>
 
-              {activeSection === 'courses' && (
-                <CoursesView
-                  catalog={store.catalog}
-                  documents={store.documents}
-                  bookmarkedIds={store.bookmarkedIds}
-                  selectedCourseId={selectedCourseId}
-                  onSelectCourse={setSelectedCourseId}
-                  onOpenDocDetail={handleOpenDocDetail}
-                  onPreviewPdf={handlePreviewPdf}
-                  onDownload={store.triggerDownload}
-                  onToggleBookmark={handleToggleBookmark}
-                />
-              )}
-
-              {activeSection === 'marking-schemes' && (
-                <MarkingSchemesView
-                  documents={store.documents}
-                  bookmarkedIds={store.bookmarkedIds}
-                  onOpenDocDetail={handleOpenDocDetail}
-                  onPreviewPdf={handlePreviewPdf}
-                  onDownload={store.triggerDownload}
-                  onToggleBookmark={handleToggleBookmark}
-                />
-              )}
-
-              {activeSection === 'upload' && (
-                <UploadCenterView
-                  user={store.user}
-                  authToken={store.authToken}
-                  catalog={store.catalog}
-                  myUploads={store.myUploads}
-                  onOpenAuth={(tab) => {
-                    setAuthTab(tab);
-                    setAuthModalOpen(true);
-                  }}
-                  onUploadComplete={async () => {
-                    await Promise.all([store.refreshCatalogAndDocs(), store.refreshUserActivity()]);
-                  }}
-                  onNotify={notify}
-                />
-              )}
-
-              {activeSection === 'bookmarks' && (
-                <BookmarksView
-                  user={store.user}
-                  documents={store.documents}
-                  bookmarkedIds={store.bookmarkedIds}
-                  recentViewIds={store.recentViewIds}
-                  recentDownloadIds={store.recentDownloadIds}
-                  collections={store.collections}
-                  onOpenAuth={(tab) => {
-                    setAuthTab(tab);
-                    setAuthModalOpen(true);
-                  }}
-                  onCreateCollection={handleCreateCollection}
-                  onDeleteCollection={handleDeleteCollection}
-                  onOpenDocDetail={handleOpenDocDetail}
-                  onPreviewPdf={handlePreviewPdf}
-                  onDownload={store.triggerDownload}
-                  onToggleBookmark={handleToggleBookmark}
-                />
-              )}
-
-              {activeSection === 'exam-prep' && (
-                <ExamPrepView
-                  user={store.user}
-                  courses={store.catalog?.courses || []}
-                  documents={store.documents}
-                  examPlans={store.examPlans}
-                  onOpenAuth={(tab) => {
-                    setAuthTab(tab);
-                    setAuthModalOpen(true);
-                  }}
-                  onCreatePlan={handleCreateExamPlan}
-                  onToggleChecklistItem={handleToggleChecklistItem}
-                  onAddChecklistItem={handleAddChecklistItem}
-                  onDeletePlan={handleDeleteExamPlan}
-                  onPreviewPdf={handlePreviewPdf}
-                />
-              )}
-
-              {activeSection === 'contributor' && (
-                <ContributorView
-                  user={store.user}
-                  myUploads={store.myUploads}
-                  onOpenAuth={(tab) => {
-                    setAuthTab(tab);
-                    setAuthModalOpen(true);
-                  }}
-                  onNavigate={navigateToSection}
-                />
-              )}
-
-              {activeSection === 'moderation' && (
-                <ModerationView
-                  user={store.user}
-                  authToken={store.authToken}
-                  onPreviewPdf={handlePreviewPdf}
-                  onModerationChanged={async () => {
-                    await Promise.all([store.refreshCatalogAndDocs(), store.refreshUserActivity()]);
-                  }}
-                  onNotify={notify}
-                />
-              )}
-
-              {activeSection === 'admin' && (
-                <AdminPanelView
-                  user={store.user}
-                  authToken={store.authToken}
-                  catalog={store.catalog}
-                  onRefreshCatalog={store.refreshCatalogAndDocs}
-                  onNotify={notify}
-                />
-              )}
-
-              {activeSection === 'support' && (
-                <SupportView
-                  user={store.user}
-                  announcements={store.catalog?.announcements || []}
-                  mySupportRequests={store.mySupportRequests}
-                  onSubmitSupport={handleSubmitSupport}
-                />
-              )}
-            </main>
-
-            <footer className="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-500 dark:border-slate-800 dark:bg-[#162033] sm:px-8">
-              <span>Campus Exam Vault</span>
-              <span className="mx-2" aria-hidden="true">·</span>
-              <span>Every Past Paper. Every Resource. Better Exam Preparation.</span>
-            </footer>
-          </div>
+          {/* Simple Institutional Footer */}
+          <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-600 dark:border-slate-800 dark:bg-[#162033] dark:text-slate-400">
+            <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 px-4 sm:flex-row sm:items-center sm:px-8">
+              <div>
+                <p className="font-display text-sm font-bold text-[#14213D] dark:text-white">
+                  {overview.settings.siteName}
+                </p>
+                <p className="mt-1">
+                  {overview.settings.institutionName} · {overview.settings.contactEmail} · {overview.settings.contactPhone}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <button type="button" onClick={() => handleNavigate('past-papers')} className="hover:text-[#2563EB]">
+                  Past Papers
+                </button>
+                <button type="button" onClick={() => handleNavigate('study-materials')} className="hover:text-[#2563EB]">
+                  Study Materials
+                </button>
+                <button type="button" onClick={() => handleNavigate('about')} className="hover:text-[#2563EB]">
+                  About
+                </button>
+                <button type="button" onClick={() => handleNavigate('contact')} className="hover:text-[#2563EB]">
+                  Contact
+                </button>
+              </div>
+            </div>
+            <div className="mx-auto mt-5 max-w-7xl border-t border-slate-100 px-4 pt-4 text-[11px] text-slate-500 dark:border-slate-800 sm:px-8">
+              {overview.settings.copyrightText}
+            </div>
+          </footer>
         </div>
       )}
 
-      {/* Document Info Modal */}
-      <DocumentDetailModal
-        document={detailDoc}
-        relatedDocuments={relatedForDetail}
-        isBookmarked={detailDoc ? store.bookmarkedIds.includes(detailDoc.id) : false}
-        collections={store.collections}
-        isSignedIn={Boolean(store.user)}
-        onClose={() => setDetailDoc(null)}
-        onPreviewPdf={(doc) => {
-          setDetailDoc(null);
-          handlePreviewPdf(doc);
-        }}
-        onDownload={store.triggerDownload}
-        onToggleBookmark={handleToggleBookmark}
-        onToggleCollectionItem={handleToggleCollectionItem}
-        onSelectRelated={(rel) => handleOpenDocDetail(rel)}
-        onSubmitReport={handleSubmitReport}
-        onNotify={notify}
-      />
-
-      {/* Integrated PDF Reader Modal */}
+      {/* Document Inline PDF Viewer Modal */}
       <PdfViewerModal
-        document={pdfViewerDoc}
-        authToken={store.authToken}
-        isBookmarked={pdfViewerDoc ? store.bookmarkedIds.includes(pdfViewerDoc.id) : false}
-        onClose={() => setPdfViewerDoc(null)}
-        onDownload={store.triggerDownload}
-        onToggleBookmark={handleToggleBookmark}
+        document={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        onDownload={handleDownloadDoc}
       />
 
-      {/* Authentication Modal */}
-      <VaultAuthModal
-        open={authModalOpen}
-        initialTab={authTab}
-        departments={store.catalog?.departments || []}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={(signedUser, token) => {
-          store.setAuthSession(token, signedUser);
-          if (signedUser.role === 'admin') setActiveSection('admin');
-          else if (signedUser.role === 'moderator') setActiveSection('moderation');
-          else setActiveSection('dashboard');
-          notify(`Signed in as ${signedUser.fullName} (${signedUser.role}).`, 'success');
-        }}
+      {/* Private Administrator Login Modal */}
+      <AdminLoginModal
+        open={adminLoginOpen}
+        onClose={() => setAdminLoginOpen(false)}
+        onSuccess={handleAdminLoginSuccess}
       />
 
-      {/* Toast Feedback */}
+      {/* Toast Notifications */}
       {toasts.length > 0 && (
-        <div aria-live="polite" className="fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-2">
-          {toasts.map((toast) => (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {toasts.map((t) => (
             <div
-              key={toast.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-[#14213D] px-4 py-3 text-xs font-medium text-white shadow-xl"
+              key={t.id}
+              className={`rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-lg ${
+                t.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950 dark:text-emerald-200'
+                  : t.tone === 'warning'
+                  ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950 dark:text-red-200'
+                  : 'border-slate-200 bg-white text-[#14213D] dark:border-slate-700 dark:bg-[#162033] dark:text-white'
+              }`}
             >
-              <span>{toast.text}</span>
-              <button
-                type="button"
-                onClick={() => setToasts((prev) => prev.filter((item) => item.id !== toast.id))}
-                aria-label="Dismiss notification"
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {t.text}
             </div>
           ))}
         </div>
@@ -680,3 +372,4 @@ export default function App() {
     </>
   );
 }
+export default App;

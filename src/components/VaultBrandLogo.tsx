@@ -1,9 +1,14 @@
 interface VaultBrandLogoProps {
+  siteName?: string;
   className?: string;
   compact?: boolean;
 }
 
-export function VaultBrandLogo({ className = '', compact = false }: VaultBrandLogoProps) {
+export function VaultBrandLogo({
+  siteName = 'Campus Past Papers Library',
+  className = '',
+  compact = false,
+}: VaultBrandLogoProps) {
   return (
     <span className={`inline-flex items-center gap-2.5 whitespace-nowrap shrink-0 ${className}`}>
       <svg
@@ -18,7 +23,7 @@ export function VaultBrandLogo({ className = '', compact = false }: VaultBrandLo
         <path
           d="M16 2.5L4.5 7.2V15.4C4.5 22.3 9.4 28.4 16 30C22.6 28.4 27.5 22.3 27.5 15.4V7.2L16 2.5Z"
           fill="#14213D"
-          stroke="#F4B400"
+          stroke="#2563EB"
           strokeWidth="1.6"
         />
         <path
@@ -27,12 +32,17 @@ export function VaultBrandLogo({ className = '', compact = false }: VaultBrandLo
           strokeWidth="1.4"
           strokeLinejoin="round"
         />
-        <path d="M16 11.2V20.8" stroke="#F4B400" strokeWidth="1.4" />
-        <path d="M12.5 14.2H14.5M17.5 14.2H19.5M12.5 17.2H14.5M17.5 17.2H19.5" stroke="#93C5FD" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M16 11.2V20.8" stroke="#93C5FD" strokeWidth="1.4" />
+        <path
+          d="M12.5 14.2H14.5M17.5 14.2H19.5M12.5 17.2H14.5M17.5 17.2H19.5"
+          stroke="#FFFFFF"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
       </svg>
       {!compact && (
-        <span className="font-display text-lg font-bold tracking-tight text-[#14213D] dark:text-white">
-          Campus Exam Vault
+        <span className="font-display text-base font-bold tracking-tight text-[#14213D] dark:text-white sm:text-lg">
+          {siteName}
         </span>
       )}
     </span>
