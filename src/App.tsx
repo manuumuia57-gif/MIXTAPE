@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Lock, Menu, Moon, Sun, X } from 'lucide-react';
+import { AlertCircle, Loader2, Lock, Menu, Moon, RefreshCw, Sun, X } from 'lucide-react';
 import {
   AdminUser,
   LibraryDocument,
@@ -13,6 +13,7 @@ import { BrowseFilters, PublicBrowsePage } from './components/PublicBrowsePage';
 import { PdfViewerModal } from './components/PdfViewerModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminDashboardApp } from './components/AdminDashboardApp';
+import { OfflineIndicator, PWAInstallButton } from './components/PWAInstallButton';
 
 const ADMIN_TOKEN_KEY = 'dekut_admin_token';
 const THEME_KEY = 'dekut_theme';
@@ -31,6 +32,7 @@ const EMPTY_FILTERS: BrowseFilters = {
 export function App() {
   const [overview, setOverview] = useState<LibraryOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [publicPage, setPublicPage] = useState<PublicPage>('home');
   const [browseFilters, setBrowseFilters] = useState<BrowseFilters>(EMPTY_FILTERS);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -67,16 +69,58 @@ export function App() {
   }, [theme]);
 
   const fetchOverview = useCallback(async () => {
+    setLoadError(null);
+    if (!overview) {
+      setLoading(true);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
     try {
-      const res = await fetch('/api/library/overview');
-      if (res.ok) {
-        const data = (await res.json()) as LibraryOverview;
-        setOverview(data);
+      const res = await fetch('/api/library/overview', {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        let message = `Unable to load library catalog (HTTP ${res.status}).`;
+        if (contentType.includes('application/json')) {
+          const errBody = await res.json().catch(() => null);
+          if (errBody?.error) message = errBody.error;
+        }
+        throw new Error(message);
+      }
+
+      if (!contentType.includes('application/json')) {
+        throw new Error('The library server returned an unexpected response instead of catalog data.');
+      }
+
+      const data = (await res.json()) as LibraryOverview;
+      if (!data || !Array.isArray(data.documents) || !data.settings) {
+        throw new Error('Library catalog response was incomplete.');
+      }
+
+      setOverview(data);
+      setLoadError(null);
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      const msg = isAbort
+        ? 'The connection to the DeKUT library server timed out. Please check your internet connection and try again.'
+        : err instanceof Error
+        ? err.message
+        : 'Unable to connect to the DeKUT library server.';
+      if (!overview) {
+        setLoadError(msg);
+      } else {
+        pushToast(msg, 'warning');
       }
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
-  }, []);
+  }, [overview, pushToast]);
 
   useEffect(() => {
     fetchOverview();
@@ -88,7 +132,11 @@ export function App() {
       setInAdminMode(false);
       return;
     }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
     fetch('/api/auth/me', {
+      signal: controller.signal,
       headers: { Authorization: `Bearer ${adminToken}` },
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -102,7 +150,10 @@ export function App() {
           setInAdminMode(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
   }, [adminToken]);
 
   const handleNavigate = (page: PublicPage, preset?: Partial<BrowseFilters>) => {
@@ -147,12 +198,59 @@ export function App() {
     pushToast('Signed out of DeKUT Admin Dashboard.', 'info');
   };
 
-  if (loading || !overview) {
+  if (loading && !overview) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F4F7FB] text-sm font-medium text-[#14213D] dark:bg-[#101827] dark:text-slate-200">
-        Loading DeKUT Past Papers Library...
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F4F7FB] px-4 text-center text-[#14213D] dark:bg-[#101827] dark:text-slate-200">
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700">
+          <img
+            src="/dekut-crest.png"
+            alt="Dedan Kimathi University of Technology"
+            className="h-12 w-auto object-contain"
+          />
+        </div>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Loader2 className="h-4 w-4 animate-spin text-[#2563EB]" />
+          <span>Loading DeKUT Past Papers Library...</span>
+        </div>
       </div>
     );
+  }
+
+  if (loadError && !overview) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#F4F7FB] px-4 text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-lg dark:border-slate-800 dark:bg-[#162033]">
+          <div className="mx-auto inline-flex rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700">
+            <img
+              src="/dekut-crest.png"
+              alt="Dedan Kimathi University of Technology"
+              className="h-11 w-auto object-contain"
+            />
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2 text-red-600 dark:text-red-400">
+            <AlertCircle className="h-5 w-5" />
+            <h1 className="font-display text-lg font-bold text-[#14213D] dark:text-white">
+              Unable to Load Library Catalog
+            </h1>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={() => fetchOverview()}
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>Try Again</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!overview) {
+    return null;
   }
 
   return (
@@ -176,11 +274,11 @@ export function App() {
         <div className="flex min-h-screen flex-col bg-[#F4F7FB] text-[#14213D] dark:bg-[#101827] dark:text-slate-100">
           {/* Top Navigation Bar */}
           <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#162033]/95">
-            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
               <button
                 type="button"
                 onClick={() => handleNavigate('home')}
-                className="text-left focus:outline-none"
+                className="text-left focus:outline-none min-w-0"
               >
                 <VaultBrandLogo
                   siteName={overview.settings.siteName}
@@ -188,7 +286,7 @@ export function App() {
                 />
               </button>
 
-              <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary Navigation">
+              <nav className="hidden items-center gap-5 xl:gap-6 lg:flex" aria-label="Primary Navigation">
                 {(
                   [
                     { id: 'home', label: 'Home' },
@@ -215,6 +313,8 @@ export function App() {
               </nav>
 
               <div className="flex items-center gap-2 shrink-0">
+                <PWAInstallButton />
+
                 <button
                   type="button"
                   onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
@@ -231,16 +331,18 @@ export function App() {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] whitespace-nowrap"
                   >
                     <Lock className="h-3.5 w-3.5" />
-                    <span>Admin Dashboard</span>
+                    <span className="hidden sm:inline">Admin Dashboard</span>
+                    <span className="sm:hidden">Admin</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setAdminLoginOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:bg-slate-900 dark:text-white whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-[#14213D] hover:border-[#2563EB] dark:border-slate-700 dark:bg-slate-900 dark:text-white whitespace-nowrap"
                   >
                     <Lock className="h-3.5 w-3.5 text-[#2563EB]" />
-                    <span>Admin Login</span>
+                    <span className="hidden sm:inline">Admin Login</span>
+                    <span className="sm:hidden">Login</span>
                   </button>
                 )}
 
@@ -365,6 +467,9 @@ export function App() {
         onClose={() => setAdminLoginOpen(false)}
         onSuccess={handleAdminLoginSuccess}
       />
+
+      {/* Offline Connectivity Indicator */}
+      <OfflineIndicator />
 
       {/* Toast Notifications */}
       {toasts.length > 0 && (

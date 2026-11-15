@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { LibraryDocument } from '../src/types/vault';
+import type { LibraryDocument } from '../src/types/vault.ts';
 
 const GENERATED_DIR = path.resolve(process.cwd(), 'uploads', 'generated');
 

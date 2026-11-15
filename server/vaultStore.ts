@@ -10,8 +10,8 @@ import {
   SEED_DEPARTMENTS,
   SEED_DOCUMENTS,
   SEMESTERS,
-} from '../src/data/vaultSeedData';
-import {
+} from '../src/data/vaultSeedData.ts';
+import type {
   AdminUser,
   ContactMessage,
   Course,
@@ -20,7 +20,7 @@ import {
   ExaminationType,
   LibraryDocument,
   SiteSettings,
-} from '../src/types/vault';
+} from '../src/types/vault.ts';
 
 export interface StoredAdminRecord extends AdminUser {
   passwordHash: string;

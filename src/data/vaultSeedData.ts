@@ -1,11 +1,11 @@
-import {
+import type {
   Course,
   Department,
   DocumentType,
   ExaminationType,
   LibraryDocument,
   SiteSettings,
-} from '../types/vault';
+} from '../types/vault.ts';
 
 export const DOCUMENT_TYPES: DocumentType[] = [
   'Past Examination Papers',

@@ -2,19 +2,19 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { createServer as createViteServer } from 'vite';
-import { DocumentType, ExaminationType, FileFormat, LibraryDocument } from './src/types/vault';
+import type { DocumentType, ExaminationType, FileFormat, LibraryDocument } from './src/types/vault.ts';
 import {
   hashPassword,
   libraryStore,
   UPLOADS_DIR,
   verifyPassword,
-} from './server/vaultStore';
-import { ensureExamplePdfFile } from './server/pdfGenerator';
+} from './server/vaultStore.ts';
+import { ensureExamplePdfFile } from './server/pdfGenerator.ts';
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 const AUTH_SECRET = process.env.AUTH_SECRET || 'dekut-past-papers-library-secret-2026';
 
 interface AdminTokenPayload {
@@ -606,8 +606,14 @@ async function startServer() {
     return res.json({ messages: libraryStore.getState().contactMessages });
   });
 
+  // Explicit JSON 404 for unknown API paths (never serve HTML for failed API requests)
+  app.use('/api', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'API endpoint not found.' });
+  });
+
   // Vite dev / static production
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
