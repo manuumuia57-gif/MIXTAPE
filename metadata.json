@@ -1,0 +1,6 @@
+{
+  "name": "FocusCampus",
+  "description": "Personal student productivity platform for managing academic tasks, study schedules, focus timer sessions, lecture notes, and academic goals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
