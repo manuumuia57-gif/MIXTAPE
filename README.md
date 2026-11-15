@@ -1,23 +1,37 @@
-# FocusCampus — Student Productivity & Academic Success Platform
+# Campus Exam Vault — Institutional Digital Examination Library
 
-Focus better, study smarter, and achieve more with an integrated academic command center built with React, TypeScript, Tailwind CSS, Recharts, Express, and optional Gemini AI integration.
+> *"Every Past Paper. Every Resource. Better Exam Preparation."*  
+> *"Prepare Smart. Practice More. Excel."*
 
-## Project Structure
+Campus Exam Vault is a full-stack academic examination resource management system built with React, TypeScript, Tailwind CSS, Express, `pdf-lib`, `pdfjs-dist`, Recharts, and optional Gemini AI integration.
 
-- `server.ts` — Express server serving Vite middleware in development, static production bundles, authentication endpoints (`/api/auth/*`), and the server-side Gemini AI Study Assistant (`/api/ai/study-assistant`).
-- `db/schema.sql` — PostgreSQL / Supabase relational schema with Row-Level Security policies for cloud production deployment.
-- `src/types/campus.ts` — Strongly typed data models across all FocusCampus modules.
-- `src/data/seedData.ts` — Realistic academic sample content (tasks, study sessions, flashcards, quizzes, resource articles, community posts, quotes, badges, and goals).
-- `src/hooks/useFocusCampusStore.ts` — Persistent workspace state stored in browser `localStorage` (`fc_*` keys) with demo/user state separation.
-- `src/components/` — Modular UI pages for the Landing Page, Dashboard, Smart Task Manager, Study Planner, Focus Timer, Notes Hub, Goals & Gamification, Exam Center, Resource Library, Community, AI Study Assistant, Flashcards & Quizzes, Profile/Settings, and Role-Protected Admin Dashboard.
+## Architecture & Project Structure
+
+- `server.ts` — Express server serving Vite middleware in development, static production bundles, HMAC-signed role-based authentication (`/api/auth/*`), `multer` multipart file uploads with server-side magic-byte validation (`%PDF-`, OOXML ZIP), SHA-256 duplicate detection, moderation workflow, PDF streaming/download tracking, admin analytics & CSV export, and optional Gemini AI practice question generation (`/api/ai/study-assistant`).
+- `server/vaultStore.ts` — Persistent JSON/WAL repository (`data/vault-db.json`) with `crypto.scryptSync` password hashing, audit logging, and notification delivery.
+- `server/pdfGenerator.ts` — Generates real, multi-page demonstration PDF past papers, revision guides, and marking schemes using `pdf-lib`.
+- `db/schema.sql` — Complete 22-table PostgreSQL / Supabase relational schema with indexes, constraints, and Row-Level Security (RLS) policies.
+- `src/types/vault.ts` — Strongly typed data models for institutions, campuses, faculties, departments, programmes, courses, documents, moderation approvals, collections, exam prep plans, and RBAC roles.
+- `src/data/vaultSeedData.ts` — Realistic fictional demonstration content (10 departments, 30 courses, 50 past papers, 15 revision materials, 10 marking schemes, 2 pending queue items, 10 institutional announcements, 10 student accounts, 5 lecturer accounts, 1 moderator account, 1 administrator account).
+- `src/components/` — Modular UI views for the Landing Page, Personalized Dashboard, Past Papers Library, Courses & Departments Directory, Marking Schemes & Solutions, Document Upload Center, Integrated PDF Reader (`PdfViewerModal.tsx`), Bookmarks & Collections, Exam Prep Center, Contributor Profile, Moderation Queue, Administrator Console, and Announcements & Support Center.
+
+## Demonstration Role Credentials
+
+All 4 RBAC roles can be accessed directly via one-click sign-in inside the **Login / Register** modal:
+
+- **Student**: `maya.lin@northbridge.edu` / `StudentVault2026!`
+- **Lecturer**: `a.pendelton@northbridge.edu` / `LecturerVault2026!`
+- **Moderator**: `moderator@northbridge.edu` / `ModeratorVault2026!`
+- **Administrator**: `admin@northbridge.edu` / `AdminVault2026!`
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` for local or production setup:
+Copy `.env.example` to `.env`:
 
-- `GEMINI_API_KEY` — Optional server-side API key for live AI Study Assistant responses. When omitted, the assistant operates in a clearly labeled **Demo Mode**.
-- `AUTH_SECRET` — HMAC secret for server session tokens.
-- `SUPABASE_URL` / `PGHOST` — Optional external PostgreSQL/Supabase credentials when deploying beyond local browser storage.
+- `AUTH_SECRET` — HMAC secret for session token signing.
+- `MAX_UPLOAD_SIZE_MB` — Default upload size cap (25 MB; configurable in Admin Settings).
+- `GEMINI_API_KEY` — Optional server-side key for live AI practice question generation. When omitted, the assistant operates in a clearly labeled **Demo Mode**.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PGHOST`, `PGDATABASE` — Optional PostgreSQL / Supabase credentials when deploying `db/schema.sql` to a cloud database.
 
 ## Installation & Development
 
@@ -28,7 +42,7 @@ npm run dev
 
 The server listens on `http://localhost:3000`.
 
-## Build & Production
+## Build & Production Deployment
 
 ```bash
 npm run lint
@@ -36,8 +50,5 @@ npm run build
 npm start
 ```
 
-## Demo Mode vs. External Backend Integration
-
-- **Browser Persistence Active**: Tasks, study schedules, focus timer history, notes, goals, exam countdowns, flashcards, community interactions, and settings persist automatically in `localStorage`.
-- **Authentication & Role Access**: Server routes (`/api/auth/login`, `/api/auth/register`, `/api/auth/recover`) hash passwords using Node `crypto.scryptSync`. Demo credentials are provided on the login screen for both **Student** and **Administrator** roles.
-- **Database Upgrade Path**: Apply `db/schema.sql` to PostgreSQL or Supabase to migrate browser storage to multi-device cloud persistence.
+1. Apply `db/schema.sql` to PostgreSQL 15+ or Supabase SQL Editor for multi-instance cloud persistence, and configure an S3/Supabase Storage bucket for uploaded files (`storage_key`).
+2. Set `NODE_ENV=production` and run `npm run build && npm start`.

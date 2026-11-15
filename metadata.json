@@ -1,6 +1,8 @@
 {
-  "name": "FocusCampus",
-  "description": "Personal student productivity platform for managing academic tasks, study schedules, focus timer sessions, lecture notes, and academic goals.",
+  "name": "Campus Exam Vault",
+  "description": "Centralized institutional digital library for university past examination papers, marking schemes, lecture notes, revision plans, and moderated academic resources.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

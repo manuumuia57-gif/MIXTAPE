@@ -2,7 +2,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: "Outfit", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
@@ -15,8 +15,19 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4 {
+  body {
+    background-color: #F4F7FB;
+    color: #14213D;
+  }
+
+  html.dark body {
+    background-color: #101827;
+    color: #F1F5F9;
+  }
+
+  h1, h2 {
     font-family: var(--font-display);
+    text-wrap: balance;
   }
 }
 
@@ -24,19 +35,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 3D Flashcard flip helpers */
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
-}
-
-.rotate-y-180 {
-  transform: rotateY(180deg);
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
