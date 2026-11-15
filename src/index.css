@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-display: "Outfit", system-ui, sans-serif;
@@ -9,8 +10,7 @@
 @layer base {
   html {
     font-family: var(--font-sans);
-    color: #0f172a;
-    background-color: #f8fafc;
+    scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -22,4 +22,21 @@
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* 3D Flashcard flip helpers */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
 }
